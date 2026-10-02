@@ -1,0 +1,23 @@
+[project]
+name = "cha3535-api"
+version = "3.0.0"
+description = "CHA3535 Session Intelligence backend API"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Dialect sqlite\\+aiosqlite does \\*not\\* support Decimal objects natively",
+]
