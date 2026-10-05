@@ -10,7 +10,12 @@ from app.core.db import get_db
 from app.dependencies import get_current_user, user_rate_limit
 from app.models import Spin, User
 from app.routers.plays import load_owned_play
-from app.schemas.spins import SpinResponse, SpinResultRequest, SpinResultResponse
+from app.schemas.spins import (
+    SpinResponse,
+    SpinResultRequest,
+    SpinResultResponse,
+    UndoSpinResponse,
+)
 from app.services import engine
 from app.services.errors import DomainError, not_found
 
@@ -47,6 +52,30 @@ async def register_spin(
     )
 
 
+@router.post(
+    "/undo",
+    response_model=UndoSpinResponse,
+    dependencies=[Depends(user_rate_limit("spins_undo", 60, 60))],
+)
+async def undo_spin(
+    play_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UndoSpinResponse:
+    play, session = await load_owned_play(db, user, play_id, for_update=True)
+    outcome = await engine.undo_last_spin(db, play, session)
+    await db.commit()
+    return UndoSpinResponse(
+        posture=outcome.posture,
+        bet_amount=outcome.bet_amount,
+        has_spins=outcome.has_spins,
+        play_progress_pct=outcome.progress_pct,
+        play_number=play.play_number,
+        cycle_number=play.cycle_number,
+        current_balance=session.current_balance,
+    )
+
+
 @router.post("/{spin_id}/result", response_model=SpinResultResponse)
 async def submit_result(
     play_id: uuid.UUID,
@@ -61,12 +90,13 @@ async def submit_result(
     )
     if spin is None:
         raise not_found("spin")
-    bonus_win = Decimal(str(body.win_amount)) if body.win_amount is not None else None
-    outcome = await engine.submit_result(db, play, session, spin, body.result, bonus_win)
+    win_amount = Decimal(str(body.win_amount)) if body.win_amount is not None else None
+    outcome = await engine.submit_result(db, play, session, spin, body.result, win_amount)
     await db.commit()
     return SpinResultResponse(
         qualifying=outcome.qualifying,
         win_amount=outcome.win_amount,
+        multiplier=outcome.multiplier,
         current_balance=session.current_balance,
         redirect=outcome.redirect,
         play_number=play.play_number,

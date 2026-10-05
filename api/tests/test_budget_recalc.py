@@ -36,16 +36,33 @@ async def test_bets_above_baseline_raise_session_budget_to_96_click_exposure(cli
     state = (await client.get(f"{API}/sessions/{sid}", headers=headers)).json()
     assert state["session_budget"] == 1780.0
 
+    # Before Play-1 starts the budget follows the bets back down to the mode baseline.
     lower = await client.post(
         f"{API}/sessions/{sid}/recalculate-budget",
         json={"base": 5, "press": 10, "max": 30},
         headers=headers,
     )
-    assert lower.json()["adjusted"] is False
-    assert lower.json()["new_budget"] == 1780.0
+    assert lower.json()["adjusted"] is True
+    assert lower.json()["new_budget"] == 890.0
+    assert lower.json()["current_balance"] == 890.0
 
+    raised = await client.post(
+        f"{API}/sessions/{sid}/recalculate-budget",
+        json={"base": 10, "press": 20, "max": 60},
+        headers=headers,
+    )
+    assert raised.json()["new_budget"] == 1780.0
     play = await begin_play(client, headers, sid, 10, 20, 60)
     assert play["click_cap"] == 96
+    assert play["session_budget"] == 1780.0
+
+    after_start = await client.post(
+        f"{API}/sessions/{sid}/recalculate-budget",
+        json={"base": 5, "press": 10, "max": 30},
+        headers=headers,
+    )
+    assert after_start.json()["adjusted"] is False
+    assert after_start.json()["new_budget"] == 1780.0
 
 
 async def test_play_start_requires_recalculation_when_bets_exceed_budget(client):

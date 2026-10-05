@@ -1,7 +1,7 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -53,7 +53,9 @@ async def recalculate_budget(
     db: AsyncSession = Depends(get_db),
 ) -> RecalculateBudgetResponse:
     session = await session_service.get_owned_session(db, user, session_id, for_update=True)
-    result = await budget.recalculate_session_budget(db, session, body.base, body.press, body.max)
+    result = await budget.recalculate_session_budget(
+        db, session, body.base, body.press, body.max, body.chosen_postures
+    )
     await db.commit()
     return RecalculateBudgetResponse(
         required_budget=result.required_budget,
@@ -70,6 +72,18 @@ async def get_session(
     db: AsyncSession = Depends(get_db),
 ) -> SessionOut:
     return to_session_out(await session_service.get_owned_session(db, user, session_id))
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def discard_session(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    session = await session_service.get_owned_session(db, user, session_id, for_update=True)
+    await session_service.discard_unplayed_session(db, session)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{session_id}/end", response_model=SessionOut)

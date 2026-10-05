@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.engine.postures import ALL_POSTURES
 from app.models.base import P1_MODES, PLAY_STATUSES, RESULT_TYPES, Base, in_list, utcnow
 
 
@@ -53,6 +54,9 @@ class Play(Base):
     confirmed_base: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_press: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_max: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    active_postures: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=ALL_POSTURES, server_default=ALL_POSTURES
+    )
     qualifying_result: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
     result_type: Mapped[str | None] = mapped_column(String(20))
     win_amount: Mapped[Decimal] = mapped_column(

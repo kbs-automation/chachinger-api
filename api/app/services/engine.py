@@ -4,9 +4,10 @@ import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import early_attack, mode_engine, ru_calc, zone_maps
+from app.engine import early_attack, mode_engine, postures, ru_calc, zone_maps
 from app.models import GameSession, Play, Spin
 from app.models.base import utcnow
 from app.services import engine_config
@@ -33,7 +34,16 @@ class SpinOutcome:
 class ResultOutcome:
     qualifying: bool
     win_amount: Decimal
+    multiplier: Decimal | None
     redirect: str
+
+
+@dataclass(frozen=True)
+class UndoOutcome:
+    posture: str
+    bet_amount: Decimal
+    has_spins: bool
+    progress_pct: int
 
 
 def progress_pct(click: int, click_cap: int) -> int:
@@ -48,7 +58,9 @@ async def get_posture(db: AsyncSession, play: Play, click: int) -> str:
         zones = await mode_engine.load_zone_map(db, play.p1_mode)
     else:
         zones = zone_maps.ENTERTAINMENT_ZONES
-    posture = mode_engine.posture_at(zones, click)
+    posture = postures.effective(
+        mode_engine.posture_at(zones, click), postures.from_column(play.active_postures)
+    )
     if early_attack.in_window(click) and await engine_config.get_value(db, "early_attack_enabled"):
         if early_attack.authorize(early_attack.EarlyAttackSignals(current_click=click)):
             return "early_attack"
@@ -136,30 +148,48 @@ def parse_result(raw: str) -> tuple[str, Decimal | None]:
     return "multiplier", multiplier
 
 
+def multiplier_for_win(win: Decimal, bet: Decimal) -> Decimal:
+    if bet <= 0:
+        raise DomainError(422, "invalid_result", "This spin has no bet to measure a win against")
+    multiplier = (win / bet).quantize(CENTS)
+    if multiplier > MAX_MULTIPLIER:
+        raise DomainError(422, "invalid_result", "Win is more than 10000x the bet")
+    return multiplier
+
+
 async def submit_result(
     db: AsyncSession,
     play: Play,
     session: GameSession,
     spin: Spin,
-    raw_result: str,
-    bonus_win: Decimal | None = None,
+    raw_result: str | None,
+    win_amount: Decimal | None = None,
 ) -> ResultOutcome:
+    """raw_result is "34x" or "bonus"; without it win_amount is the dollar payout."""
     _require_active(play, session)
     if spin.result_input is not None:
         raise DomainError(409, "result_already_submitted", "A result was already submitted")
     if spin.click_number != play.total_clicks:
         raise DomainError(409, "stale_spin", "Results can only be submitted for the latest spin")
 
-    kind, multiplier = parse_result(raw_result)
-    if kind == "bonus":
-        qualifying = True
-        win = (bonus_win or Decimal("0")).quantize(CENTS)
+    if raw_result is None:
+        if win_amount is None:
+            raise DomainError(422, "invalid_result", "Provide a result or a win amount")
+        kind = "multiplier"
+        win = win_amount.quantize(CENTS)
+        multiplier: Decimal | None = multiplier_for_win(win, spin.bet_amount)
+        stored_input = f"{multiplier}x"
     else:
-        assert multiplier is not None
-        qualifying = multiplier >= QUALIFYING_MULTIPLIER
-        win = (spin.bet_amount * multiplier).quantize(CENTS)
+        kind, multiplier = parse_result(raw_result)
+        if kind == "bonus":
+            win = (win_amount or Decimal("0")).quantize(CENTS)
+        else:
+            assert multiplier is not None
+            win = (spin.bet_amount * multiplier).quantize(CENTS)
+        stored_input = raw_result.strip().lower()
+    qualifying = kind == "bonus" or (multiplier is not None and multiplier >= QUALIFYING_MULTIPLIER)
 
-    spin.result_input = raw_result.strip().lower()[:20]
+    spin.result_input = stored_input[:20]
     spin.is_qualifying = qualifying
     session.current_balance = session.current_balance + win
     play.win_amount = play.win_amount + win
@@ -168,11 +198,40 @@ async def submit_result(
         _end_play(play, "completed", kind)
         play.qualifying_result = multiplier
         play.p1_mode_active = False
-        return ResultOutcome(True, win, "next_play")
+        return ResultOutcome(True, win, multiplier, "next_play")
     if spin.click_number >= play.click_cap:
         await _hard_exit(db, play, session)
-        return ResultOutcome(False, win, "hard_exit")
-    return ResultOutcome(False, win, "continue")
+        return ResultOutcome(False, win, multiplier, "hard_exit")
+    return ResultOutcome(False, win, multiplier, "continue")
+
+
+async def undo_last_spin(db: AsyncSession, play: Play, session: GameSession) -> UndoOutcome:
+    """Reverses the latest spin of an active play, as if it was never registered."""
+    _require_active(play, session)
+    if play.total_clicks == 0:
+        raise DomainError(409, "nothing_to_undo", "This play has no spins to undo")
+    spin = await db.scalar(
+        select(Spin)
+        .where(Spin.play_id == play.id, Spin.click_number == play.total_clicks)
+        .with_for_update()
+    )
+    if spin is None:
+        raise DomainError(409, "nothing_to_undo", "This play has no spins to undo")
+    if spin.result_input is not None:
+        raise DomainError(409, "result_already_submitted", "A spin with a result cannot be undone")
+    session.current_balance = session.current_balance + spin.bet_amount
+    session.total_wagered = session.total_wagered - spin.bet_amount
+    play.total_clicks = play.total_clicks - 1
+    await db.delete(spin)
+
+    shown_click = max(play.total_clicks, 1)
+    posture = await get_posture(db, play, shown_click)
+    return UndoOutcome(
+        posture=posture,
+        bet_amount=bet_for_posture(play, posture),
+        has_spins=play.total_clicks > 0,
+        progress_pct=progress_pct(play.total_clicks, play.click_cap),
+    )
 
 
 def end_play_manually(play: Play, session: GameSession) -> None:

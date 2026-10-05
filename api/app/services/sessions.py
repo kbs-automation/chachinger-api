@@ -49,13 +49,13 @@ async def create_session(
         )
 
     base, press, max_bet = budget.suggest_bets(config, requested_budget)
-    exposure = budget.exposure_for_config(config, base, press, max_bet)
-    session_budget = max(requested_budget, exposure.required_budget)
+    session_budget = budget.opening_budget(config, requested_budget)
 
     session = GameSession(
         user_id=user.id,
         p1_mode=p1_mode,
         session_budget=session_budget,
+        player_budget=requested_budget,
         current_balance=session_budget,
         confirmed_base=base,
         confirmed_press=press,
@@ -80,6 +80,17 @@ async def get_owned_session(
     if session is None:
         raise not_found("session")
     return session
+
+
+async def discard_unplayed_session(db: AsyncSession, session: GameSession) -> None:
+    """A session abandoned during bet setup leaves no history behind."""
+    if session.status != "active":
+        raise DomainError(409, "session_not_active", "Session is not active")
+    if session.play_count:
+        raise DomainError(
+            409, "session_has_plays", "A session with plays must be ended, not discarded"
+        )
+    await db.delete(session)
 
 
 async def list_sessions(

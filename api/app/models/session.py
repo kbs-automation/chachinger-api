@@ -32,6 +32,8 @@ class GameSession(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
     p1_mode: Mapped[str] = mapped_column(String(30), nullable=False)
     session_budget: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    # The budget the player asked for; session_budget is derived from it and the bets.
+    player_budget: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     current_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_base: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_press: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)

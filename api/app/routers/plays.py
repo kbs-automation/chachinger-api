@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,7 +62,12 @@ async def start_play(
 ) -> PlayStartResponse:
     session = await session_service.get_owned_session(db, user, session_id, for_update=True)
     play = await play_tracker.start_play(
-        db, session, body.confirmed_base, body.confirmed_press, body.confirmed_max
+        db,
+        session,
+        body.confirmed_base,
+        body.confirmed_press,
+        body.confirmed_max,
+        body.chosen_postures,
     )
     posture, bet = await engine.upcoming_bet(db, play)
     await db.commit()
@@ -76,6 +81,7 @@ async def start_play(
         cycle_number=play.cycle_number,
         click_cap=play.click_cap,
         current_balance=session.current_balance,
+        session_budget=session.session_budget,
     )
 
 
@@ -87,6 +93,18 @@ async def get_play(
 ) -> PlayStateResponse:
     play, session = await load_owned_play(db, user, play_id)
     return await play_state(db, play, session)
+
+
+@router.delete("/plays/{play_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def discard_play(
+    play_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    play, session = await load_owned_play(db, user, play_id, for_update=True)
+    await play_tracker.discard_unspun_play(db, play, session)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/plays/{play_id}/end", response_model=PlayStateResponse)

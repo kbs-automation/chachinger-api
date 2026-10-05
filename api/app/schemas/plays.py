@@ -2,19 +2,34 @@ import uuid
 
 from pydantic import model_validator
 
-from app.schemas.common import MoneyIn, MoneyOut, Posture, RequestModel, ResponseModel
+from app.engine import postures
+from app.schemas.common import (
+    ActivePostures,
+    MoneyIn,
+    MoneyOut,
+    Posture,
+    RequestModel,
+    ResponseModel,
+    check_ladder,
+)
 
 
 class StartPlayRequest(RequestModel):
     confirmed_base: MoneyIn
     confirmed_press: MoneyIn
     confirmed_max: MoneyIn
+    active_postures: ActivePostures | None = None
 
     @model_validator(mode="after")
     def _ordered(self) -> "StartPlayRequest":
-        if not self.confirmed_base <= self.confirmed_press <= self.confirmed_max:
-            raise ValueError("bets must satisfy base ≤ press ≤ max")
+        check_ladder(
+            self.confirmed_base, self.confirmed_press, self.confirmed_max, self.active_postures
+        )
         return self
+
+    @property
+    def chosen_postures(self) -> tuple[str, ...]:
+        return postures.normalize(self.active_postures)
 
 
 class PlayStartResponse(ResponseModel):
@@ -27,6 +42,7 @@ class PlayStartResponse(ResponseModel):
     cycle_number: int
     click_cap: int
     current_balance: MoneyOut
+    session_budget: MoneyOut
 
 
 class PlayStateResponse(ResponseModel):

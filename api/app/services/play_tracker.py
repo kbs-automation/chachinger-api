@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import mode_engine, zone_maps
+from app.engine import mode_engine, postures, zone_maps
 from app.models import GameSession, Play
 from app.services import budget
 from app.services.errors import DomainError, not_found
@@ -35,12 +35,23 @@ def next_position(last: Play | None) -> tuple[int, int]:
     return play_number, cycle_number
 
 
+async def discard_unspun_play(db: AsyncSession, play: Play, session: GameSession) -> None:
+    """Backing out of the engine before the first spin returns the player to bet setup."""
+    if session.status != "active" or play.status != "active":
+        raise DomainError(409, "play_not_active", "Play is not active")
+    if play.total_clicks:
+        raise DomainError(409, "play_has_spins", "A play with spins cannot be discarded")
+    await db.delete(play)
+    session.play_count = max((session.play_count or 0) - 1, 0)
+
+
 async def start_play(
     db: AsyncSession,
     session: GameSession,
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
+    active: tuple[str, ...] = postures.POSTURE_ORDER,
 ) -> Play:
     if session.status != "active":
         raise DomainError(409, "session_not_active", "Session is not active")
@@ -54,26 +65,20 @@ async def start_play(
         config = await mode_engine.get_mode_config(db, session.p1_mode)
         if config is None:
             raise not_found("mode")
-        floors = (
-            ("confirmed_base", base, config.baseline_base),
-            ("confirmed_press", press, config.baseline_press),
-            ("confirmed_max", max_bet, config.baseline_max),
+        required = budget.p1_budget_target(
+            config,
+            session.player_budget or session.session_budget,
+            base,
+            press,
+            max_bet,
+            active,
         )
-        for field, value, floor in floors:
-            if floor is not None and value < floor:
-                raise DomainError(
-                    422,
-                    "bet_below_mode_floor",
-                    f"{field} is below the {config.label} floor",
-                    {"field": field, "floor": float(floor)},
-                )
-        exposure = budget.exposure_for_config(config, base, press, max_bet)
-        if exposure.required_budget > session.session_budget:
+        if required > session.session_budget:
             raise DomainError(
                 409,
                 "budget_recalculation_required",
                 "Bets need a larger Session Budget; call /recalculate-budget first",
-                {"required_budget": float(exposure.required_budget)},
+                {"required_budget": float(required)},
             )
         p1_mode: str | None = session.p1_mode
         p1_mode_active = session.p1_mode != "entertainment"
@@ -93,6 +98,7 @@ async def start_play(
         confirmed_base=base,
         confirmed_press=press,
         confirmed_max=max_bet,
+        active_postures=postures.to_column(active),
         status="active",
     )
     db.add(play)

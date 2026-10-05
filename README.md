@@ -62,16 +62,25 @@ checks that `alembic upgrade head` followed by `alembic check` reports no drift 
 All routes live under `/api/v1`. Every error has the shape `{"detail": {"code", "message", ...}}`.
 
 1. `GET /modes` lists the active P1 modes with their minimum budget and baseline bets.
+   `POST /modes/{id}/suggest {budget}` previews the bets and Session Budget a new session would get.
 2. `POST /sessions {p1_mode, budget}` returns suggested bets and a `session_budget` that the server
    has already raised to cover the suggested ladder's full 96-click exposure.
-3. If the player enters higher bets, call `POST /sessions/{id}/recalculate-budget {base, press, max}`.
-   The budget only ever goes up.
-4. `POST /sessions/{id}/plays {confirmed_base, confirmed_press, confirmed_max}` locks the bets for the play.
-   P1 returns `409 budget_recalculation_required` if the bets need a bigger budget.
+   `DELETE /sessions/{id}` discards a session that has no plays yet (the player backed out of bet setup).
+3. Whenever the player changes bets or switches a posture off, call
+   `POST /sessions/{id}/recalculate-budget {base, press, max, active_postures?}`. Before Play-1 starts,
+   the budget follows the bets up or down. Bets entered by hand, or played with a posture switched off,
+   cost exactly their 96-click exposure. After Play-1 starts the budget only goes up.
+4. `POST /sessions/{id}/plays {confirmed_base, confirmed_press, confirmed_max, active_postures?}` locks
+   the bets for the play. P1 returns `409 budget_recalculation_required` if the bets need a bigger budget.
+   `active_postures` lists at least two of `base`, `press`, `max`. A switched-off posture's clicks are
+   played at the nearest active posture below it, or above it if none is below.
+   `DELETE /plays/{id}` discards a play that has no spins yet, so the player can go back to bet setup.
 5. `POST /plays/{id}/spins` (no body) is sent once per machine spin. The response gives the posture and
-   bet amount for that spin.
-6. `POST /plays/{id}/spins/{spin_id}/result {result: "34x" | "bonus"}` reports a payout. `redirect` is
-   `next_play` (10x or more, or a bonus), `hard_exit`, or `continue`.
+   bet amount for that spin. `POST /plays/{id}/spins/undo` reverses the latest spin if it has no result.
+6. `POST /plays/{id}/spins/{spin_id}/result` reports a payout, as either `{result: "34x" | "bonus"}`,
+   `{win_amount}` (the dollar payout, converted to a multiplier of the spin's bet), or
+   `{result: "bonus", win_amount}`. `redirect` is `next_play` (10x or more, or a bonus), `hard_exit`,
+   or `continue`.
 
 The spin response follows section 4.5 exactly and adds two fields: `spin_id`, which step 6 needs, and
 `redirect`, which reports a hard exit when a spin is attempted past the cap.
@@ -101,6 +110,9 @@ The spin response follows section 4.5 exactly and adds two fields: `spin_id`, wh
 | `engine_config` table | Backs `PATCH /admin/config` inside the same audited transaction |
 | `GET /admin/modes`, `GET /admin/config`, `POST /admin/auth/login` | Read endpoints and a separate admin login for the admin panel |
 | Optional `win_amount` on bonus results | A bonus has no multiplier, so its payout must be entered directly |
+| `win_amount` without `result` | The mobile app asks for the dollar payout, not a multiplier |
+| `plays.active_postures`, `sessions.player_budget` | Posture switching and budget repricing as the mobile app does them |
+| `POST /plays/{id}/spins/undo`, `DELETE /sessions/{id}`, `DELETE /plays/{id}`, `POST /modes/{id}/suggest` | Undo spin, the app's back buttons before play starts, and its budget preview screen |
 
 ## Not yet built
 
