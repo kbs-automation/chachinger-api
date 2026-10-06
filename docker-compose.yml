@@ -1,20 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: cha3535
-      POSTGRES_PASSWORD: cha3535
-      POSTGRES_DB: cha3535
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cha3535"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   redis:
     image: redis:7
     ports:
@@ -28,20 +12,18 @@ services:
   api:
     build: ./api
     profiles: ["api"]
-    env_file: ./api/.env
+    env_file:
+      - ./api/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://cha3535:cha3535@postgres:5432/cha3535
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
-
-volumes:
-  pgdata:
