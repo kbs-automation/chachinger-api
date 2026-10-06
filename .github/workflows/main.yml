@@ -1,0 +1,23 @@
+
+name: Deploy Cachinger API
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: cachinger-api-master
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Deploy
+        run: |
+          echo "Deployment started"
+          echo "Running on cachinger-api-master"
+          echo "Branch: main"
