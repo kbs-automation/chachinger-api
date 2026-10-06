@@ -2,7 +2,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -11,7 +11,6 @@ services:
 
   api:
     build: ./api
-    profiles: ["api"]
     env_file:
       - ./api/.env
     environment:
