@@ -3,6 +3,7 @@ version: "2.4"
 services:
   redis:
     image: redis:7
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
@@ -13,6 +14,7 @@ services:
 
   api:
     build: ./api
+    restart: always
     env_file:
       - ./api/.env
     command: >
