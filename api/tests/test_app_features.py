@@ -91,7 +91,8 @@ async def test_bets_entered_by_hand_may_sit_below_the_mode_baseline(client):
 
 async def test_win_entered_in_dollars_becomes_a_multiplier_of_the_bet(client):
     headers = await register(client)
-    session = await new_session(client, headers, "strike", 555)
+    # $890 is exactly one Strike baseline unit, so suggested bets are 5/10/30.
+    session = await new_session(client, headers, "strike", 890)
     play = await begin_suggested_play(client, headers, session)
     pid = play["play_id"]
 
@@ -140,7 +141,7 @@ async def test_bonus_takes_a_dollar_payout_and_multiplier_rejects_one(client):
 
 async def test_undo_reverses_the_latest_spin(client):
     headers = await register(client)
-    session = await new_session(client, headers, "strike", 555)
+    session = await new_session(client, headers, "strike", 890)
     play = await begin_suggested_play(client, headers, session)
     pid = play["play_id"]
     undo_url = f"{API}/plays/{pid}/spins/undo"
@@ -229,4 +230,18 @@ async def test_suggest_matches_what_a_new_session_would_offer(client):
         assert preview[field] == session[field], field
 
     strike = await client.post(f"{API}/modes/strike/suggest", json={"budget": 555}, headers=headers)
-    assert strike.json()["session_budget"] == 890.0
+    body = strike.json()
+    assert body["session_budget"] == 555.0
+    assert (body["suggested_base"], body["suggested_press"], body["suggested_max"]) == (
+        3.11,
+        6.23,
+        18.70,
+    )
+
+    # Entertainment sizes the RU shape (0.40 / 1.00 / 1.40) to the map, not a coin ladder.
+    assert (preview["suggested_base"], preview["suggested_press"], preview["suggested_max"]) == (
+        4.69,
+        11.73,
+        16.43,
+    )
+    assert preview["session_budget"] == 1000.0

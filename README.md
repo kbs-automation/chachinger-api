@@ -63,8 +63,9 @@ All routes live under `/api/v1`. Every error has the shape `{"detail": {"code", 
 
 1. `GET /modes` lists the active P1 modes with their minimum budget and baseline bets.
    `POST /modes/{id}/suggest {budget}` previews the bets and Session Budget a new session would get.
-2. `POST /sessions {p1_mode, budget}` returns suggested bets and a `session_budget` that the server
-   has already raised to cover the suggested ladder's full 96-click exposure.
+2. `POST /sessions {p1_mode, budget}` returns suggested bets sized so the full 96-click map fits
+   the typed budget (scaling the mode's BASE:PRESS:MAX shape, or RU factors for Entertainment,
+   both up and down). `session_budget` is `max(typed budget, mode minimum, map exposure)`.
    `DELETE /sessions/{id}` discards a session that has no plays yet (the player backed out of bet setup).
 3. Whenever the player changes bets or switches a posture off, call
    `POST /sessions/{id}/recalculate-budget {base, press, max, active_postures?}`. Before Play-1 starts,

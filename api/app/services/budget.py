@@ -65,23 +65,35 @@ async def calc_96_exposure(
 
 
 def suggest_bets(config: P1ModeConfig, budget: Decimal) -> tuple[Decimal, Decimal, Decimal]:
-    """RU bets for flexible modes; baselines scaled up (never down) for min-budget modes."""
-    if config.baseline_base is None or config.baseline_press is None or config.baseline_max is None:
-        return ru_calc.calc_ru_bets(budget)
-    baseline_exposure = mode_engine.zone_exposure(
-        config.zone_map, config.baseline_base, config.baseline_press, config.baseline_max
-    )
-    factor = max(Decimal("1"), budget / baseline_exposure) if baseline_exposure > 0 else Decimal(1)
+    """Size a Play-1 ladder so its full-map exposure matches the typed budget.
+
+    Matches the Flutter app's ``budgetLadderFor``: one unit of the mode's shape —
+    its configured baseline BASE:PRESS:MAX, or the Risk Unit factors
+    0.40:1.00:1.40 for Entertainment (no baseline) — is priced across the full
+    Play-1 map, and the budget is split into that many units. The ladder scales
+    both up and down with the budget; amounts are floored to the cent and never
+    push exposure above the budget.
+    """
+    if config.baseline_base is not None and config.baseline_press is not None and config.baseline_max is not None:
+        shape = (config.baseline_base, config.baseline_press, config.baseline_max)
+    else:
+        shape = (ru_calc.BASE_FACTOR, ru_calc.PRESS_FACTOR, ru_calc.MAX_FACTOR)
+    units_per_share = mode_engine.zone_exposure(config.zone_map, *shape)
+    if budget <= 0 or units_per_share <= 0:
+        return ZERO, ZERO, ZERO
+    unit = budget / units_per_share
     return (
-        ru_calc.money_down(config.baseline_base * factor),
-        ru_calc.money_down(config.baseline_press * factor),
-        ru_calc.money_down(config.baseline_max * factor),
+        ru_calc.money_down(unit * shape[0]),
+        ru_calc.money_down(unit * shape[1]),
+        ru_calc.money_down(unit * shape[2]),
     )
 
 
 def opening_budget(config: P1ModeConfig, requested: Decimal) -> Decimal:
+    """Session Budget for the suggested ladder: max(typed budget, mode min, exposure)."""
     base, press, max_bet = suggest_bets(config, requested)
-    return max(requested, exposure_for_config(config, base, press, max_bet).required_budget)
+    exposure = map_exposure(config, base, press, max_bet)
+    return max(requested, config.min_budget or ZERO, exposure)
 
 
 @dataclass(frozen=True)

@@ -389,11 +389,13 @@ debounce of about 300 ms.
 { "budget": 555 }
 ```
 ```json
-{ "mode_id": "strike", "suggested_base": 5.0, "suggested_press": 10.0, "suggested_max": 30.0, "session_budget": 890.0 }
+{ "mode_id": "strike", "suggested_base": 3.11, "suggested_press": 6.23, "suggested_max": 18.7, "session_budget": 555.0 }
 ```
 
-`session_budget` is what the session will actually open with. It can be higher than the
-typed budget, because the suggested bets must cover the full map.
+Suggested bets scale the mode's BASE:PRESS:MAX shape (or the RU factors 0.40:1.00:1.40
+for Entertainment) so the full 96-click map costs at most the typed budget. `session_budget`
+is `max(typed budget, mode minimum, map exposure)` — typically the typed budget itself,
+not the mode's published baseline exposure.
 
 #### `POST /modes/{mode_id}/exposure` (auth)
 
@@ -419,11 +421,11 @@ Prices any ladder without a session.
 {
   "session_id": "6c1d…",
   "p1_mode": "strike",
-  "session_budget": 890.0,
-  "current_balance": 890.0,
-  "suggested_base": 5.0,
-  "suggested_press": 10.0,
-  "suggested_max": 30.0,
+  "session_budget": 555.0,
+  "current_balance": 555.0,
+  "suggested_base": 3.11,
+  "suggested_press": 6.23,
+  "suggested_max": 18.7,
   "mode_click_cap": 96,
   "play_number": 1,
   "cycle_number": 1

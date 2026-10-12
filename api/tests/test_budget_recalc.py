@@ -1,13 +1,27 @@
 from tests.helpers import API, begin_play, new_session, register
 
 
-async def test_session_budget_covers_baseline_exposure_at_creation(client):
+async def test_suggested_ladder_fits_the_typed_budget_at_creation(client):
     headers = await register(client)
+    # Strike baseline exposure is $890. A $555 budget scales the 5/10/30 shape down
+    # so the full-map cost stays at or under the typed budget (never raised to $890).
     session = await new_session(client, headers, "strike", 555)
-    # Strike baseline over the full 96-click map: 15×$30 + 7×$10 + 74×$5 = $890.
-    assert session["session_budget"] == 890.0
-    assert session["current_balance"] == 890.0
+    assert session["session_budget"] == 555.0
+    assert session["current_balance"] == 555.0
     assert (session["suggested_base"], session["suggested_press"], session["suggested_max"]) == (
+        3.11,
+        6.23,
+        18.70,
+    )
+
+    # At the baseline exposure the typed budget is exactly one unit of the shape.
+    preview = await client.post(
+        f"{API}/modes/strike/suggest", json={"budget": 890}, headers=headers
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["session_budget"] == 890.0
+    assert (body["suggested_base"], body["suggested_press"], body["suggested_max"]) == (
         5.0,
         10.0,
         30.0,
