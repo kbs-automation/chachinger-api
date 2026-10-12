@@ -54,7 +54,9 @@ def progress_pct(click: int, click_cap: int) -> int:
 
 
 async def get_posture(db: AsyncSession, play: Play, click: int) -> str:
-    if play.p1_mode_active and play.p1_mode and play.p1_mode != "entertainment":
+    # Active P1 modes (Strike, Pursuit, …) read their map from the DB.
+    # Entertainment P1 and every Play-2+ use the standard Entertainment map.
+    if play.p1_mode_active and play.p1_mode:
         zones = await mode_engine.load_zone_map(db, play.p1_mode)
     else:
         zones = zone_maps.ENTERTAINMENT_ZONES

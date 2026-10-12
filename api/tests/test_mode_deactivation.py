@@ -35,11 +35,17 @@ async def test_p2_uses_standard_map_not_mode_map(client):
     headers = await register(client)
     session = await new_session(client, headers, "strike", 555)
     p1 = await begin_suggested_play(client, headers, session)
-    # Strike click 1 is MAX; the standard map's click 1 is BASE.
+    # Strike click 1 is MAX; Play-2 uses the standard Entertainment map (also MAX at click 1).
     assert p1["posture"] == "max"
     s = await spin(client, headers, p1["play_id"])
     await submit(client, headers, p1["play_id"], s["spin_id"], "25x")
 
     p2 = await begin_play(client, headers, session["session_id"], 4, 10, 15)
-    assert p2["posture"] == "base"
-    assert p2["next_bet_amount"] == 4.0
+    assert p2["posture"] == "max"
+    assert p2["next_bet_amount"] == 15.0
+    first = await spin(client, headers, p2["play_id"])
+    assert (first["posture"], first["next_bet_amount"]) == ("max", 15.0)
+    # Click 2 on the standard map is BASE — proves P2 is not still on Strike's map
+    # (Strike click 2 would still be MAX).
+    second = await spin(client, headers, p2["play_id"])
+    assert (second["posture"], second["next_bet_amount"]) == ("base", 4.0)

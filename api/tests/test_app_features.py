@@ -238,10 +238,36 @@ async def test_suggest_matches_what_a_new_session_would_offer(client):
         18.70,
     )
 
-    # Entertainment sizes the RU shape (0.40 / 1.00 / 1.40) to the map, not a coin ladder.
+    # Entertainment sizes the RU shape (0.40 / 1.00 / 1.40) to the approved map.
     assert (preview["suggested_base"], preview["suggested_press"], preview["suggested_max"]) == (
-        4.69,
-        11.73,
-        16.43,
+        5.46,
+        13.66,
+        19.12,
     )
     assert preview["session_budget"] == 1000.0
+
+
+async def test_entertainment_begin_play_and_spins_use_approved_postures(client):
+    """Click 1 is MAX on the approved Entertainment map (not the old BASE streak)."""
+    headers = await register(client)
+    session = await new_session(client, headers, "entertainment", 1000)
+    play = await begin_suggested_play(client, headers, session)
+    assert play["posture"] == "max"
+    assert play["next_bet_amount"] == session["suggested_max"]
+
+    # Approved sequence for clicks 1–10: max, base, max, max, base, base, base, base, max, press.
+    expected = [
+        ("max", session["suggested_max"]),
+        ("base", session["suggested_base"]),
+        ("max", session["suggested_max"]),
+        ("max", session["suggested_max"]),
+        ("base", session["suggested_base"]),
+        ("base", session["suggested_base"]),
+        ("base", session["suggested_base"]),
+        ("base", session["suggested_base"]),
+        ("max", session["suggested_max"]),
+        ("press", session["suggested_press"]),
+    ]
+    for posture, bet in expected:
+        spin_out = await spin(client, headers, play["play_id"])
+        assert (spin_out["posture"], spin_out["next_bet_amount"]) == (posture, bet)

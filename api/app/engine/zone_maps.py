@@ -16,18 +16,32 @@ def _z(s: int, e: int, t: str) -> dict[str, Any]:
     return {"s": s, "e": e, "t": t}
 
 
-# Original 1–64 map is LOCKED. 65–96 is the universal extension.
+# Approved Entertainment Play-1 map (Flutter kPlayOneUniversalMap).
+# Clicks 1–64 are LOCKED; 65–79 BASE and 80–96 PRESS are the universal extension.
+# This is also the standard map for every Play-2+ play.
 ENTERTAINMENT_ZONES: list[dict[str, Any]] = [
-    _z(1, 6, "base"),
-    _z(7, 13, "press"),
-    _z(14, 16, "base"),
-    _z(17, 19, "press"),
-    _z(20, 33, "press"),
-    _z(34, 39, "base"),
-    _z(40, 42, "press"),
-    _z(43, 55, "max"),
-    _z(56, 59, "press"),
-    _z(60, 64, "max"),
+    _z(1, 1, "max"),
+    _z(2, 2, "base"),
+    _z(3, 4, "max"),
+    _z(5, 8, "base"),
+    _z(9, 9, "max"),
+    _z(10, 10, "press"),
+    _z(11, 14, "max"),
+    _z(15, 18, "base"),
+    _z(19, 23, "press"),
+    _z(24, 25, "base"),
+    _z(26, 26, "max"),
+    _z(27, 33, "press"),
+    _z(34, 47, "base"),
+    _z(48, 54, "press"),
+    _z(55, 56, "base"),
+    _z(57, 57, "max"),
+    _z(58, 58, "base"),
+    _z(59, 59, "press"),
+    _z(60, 61, "base"),
+    _z(62, 62, "max"),
+    _z(63, 63, "base"),
+    _z(64, 64, "max"),
     _z(65, 79, "base"),
     _z(80, 96, "press"),
 ]
