@@ -101,6 +101,7 @@ async def _hard_exit(db: AsyncSession, play: Play, session: GameSession) -> None
     _end_play(play, "hard_exit", "hard_exit")
     session.status = "hard_exit"
     session.ended_at = utcnow()
+    session.pending_route = None
     session.execution_grade = await compute_execution_grade(db, session)
 
 
@@ -250,4 +251,5 @@ async def end_session_manually(
         _end_play(active_play, "manual_exit", "manual_exit")
     session.status = "manual_exit"
     session.ended_at = utcnow()
+    session.pending_route = None
     session.execution_grade = await compute_execution_grade(db, session)

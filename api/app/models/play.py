@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.engine.postures import ALL_POSTURES
-from app.models.base import P1_MODES, PLAY_STATUSES, RESULT_TYPES, Base, in_list, utcnow
+from app.models.base import P1_MODES, PLAY_STATUSES, RESULT_TYPES, ROUTE_IDS, Base, in_list, utcnow
 
 
 class Play(Base):
@@ -29,6 +29,7 @@ class Play(Base):
         CheckConstraint(in_list("status", PLAY_STATUSES), name="status_valid"),
         CheckConstraint(in_list("result_type", RESULT_TYPES, nullable=True), name="result_valid"),
         CheckConstraint("play_number BETWEEN 1 AND 6", name="play_number_range"),
+        CheckConstraint(in_list("route", ROUTE_IDS, nullable=True), name="route_valid"),
         CheckConstraint("click_cap > 0", name="click_cap_positive"),
         CheckConstraint("total_clicks >= 0 AND total_clicks <= click_cap", name="clicks_in_cap"),
         Index("ix_plays_session", "session_id", "cycle_number", "play_number"),
@@ -48,6 +49,8 @@ class Play(Base):
     cycle_number: Mapped[int] = mapped_column(Integer, nullable=False)
     p1_mode: Mapped[str | None] = mapped_column(String(30))
     p1_mode_active: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Pocket route this play is limited to. Empty on Play-1.
+    route: Mapped[str | None] = mapped_column(String(20))
     # INTERNAL — never exposed through any user-facing response schema.
     total_clicks: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     click_cap: Mapped[int] = mapped_column(Integer, nullable=False)

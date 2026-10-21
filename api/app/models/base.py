@@ -23,6 +23,7 @@ SESSION_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 PLAY_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 RESULT_TYPES = ("multiplier", "bonus", "hard_exit", "manual_exit")
 POSTURES = ("base", "press", "max", "early_attack")
+ROUTE_IDS = ("early", "mid", "deep", "extreme_deep")
 
 
 def in_list(column: str, values: tuple[str, ...], nullable: bool = False) -> str:

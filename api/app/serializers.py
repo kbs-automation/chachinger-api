@@ -1,8 +1,10 @@
 from app.engine.zone_maps import PLAYS_PER_CYCLE
 from app.models import GameSession, User
 from app.schemas.auth import UserProfile
+from app.schemas.routes import NextRouteResponse, RouteCardOut, RouteReferenceOut
 from app.schemas.sessions import SessionOut
 from app.services import storage
+from app.services.next_route import Continuation
 
 
 def to_profile(user: User) -> UserProfile:
@@ -40,6 +42,39 @@ def to_session_out(session: GameSession) -> SessionOut:
         play_number=current_play_number(session),
         cycle_number=session.cycle_number,
         execution_grade=session.execution_grade,
+        selected_route=session.pending_route,
         started_at=session.started_at,
         ended_at=session.ended_at,
+    )
+
+
+def to_next_route(view: Continuation) -> NextRouteResponse:
+    reference = view.reference
+    return NextRouteResponse(
+        can_continue=view.can_continue,
+        block_reason=view.block_reason,
+        completed_play_number=view.completed_play_number,
+        next_play_number=view.next_play_number,
+        next_cycle_number=view.next_cycle_number,
+        prompt=view.prompt,
+        selected_route=view.selected_route,
+        reference=None
+        if reference is None
+        else RouteReferenceOut(
+            budget=reference.budget,
+            base=reference.base,
+            press=reference.press,
+            max=reference.max,
+            source=reference.source,
+        ),
+        routes=[
+            RouteCardOut(
+                route_id=card.route_id,
+                heading=card.heading,
+                detail=card.detail,
+                exposure_pct=card.exposure_pct,
+                risk_pct=card.risk_pct,
+            )
+            for card in view.routes
+        ],
     )

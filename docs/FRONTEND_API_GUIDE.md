@@ -131,6 +131,8 @@ treat it as `validation_error` and join the `msg` values. See
 | 409 | `play_already_active` | Tried to start a play while one is running | — |
 | 409 | `play_not_active` | Play already ended | `status` |
 | 409 | `play_has_spins` | Tried to discard a play that has spins | — |
+| 409 | `route_required` | Play 2+ started before a pocket route was chosen | — |
+| 409 | `continuation_unavailable` | Route selection rejected because the next play cannot start | `block_reason` |
 | 409 | `budget_recalculation_required` | Play-1 bets need a bigger budget; recalculate first | `required_budget` |
 | 409 | `concurrent_spin` | Two spins registered at the same moment; retry once | — |
 | 409 | `nothing_to_undo` | No spin to undo | — |
@@ -684,10 +686,11 @@ flowchart TD
    - **Cap reached:** if `at_hard_exit_cap` is true, warn the player that this is the last
      spin.
 7. **Next play.**
-   - After `next_play`, show the next play number (`play_number` + 1, wrapping 6 → 1 with
-     `cycle_number` + 1).
-   - Let the player confirm the bets, then call `POST /sessions/{id}/plays` again.
-   - Plays 2 and later have a cap of 70 spins and no budget recalculation step.
+   - When `redirect` is `next_play`, the result also includes `continuation`. Paint the
+     route cards from that object (see section 13). Do not continue until the player
+     selects one route.
+   - Let the player confirm the bets, reprice the cards, then call
+     `POST /sessions/{id}/plays`. Plays after the first require the saved route.
 8. **End.**
    - **Manual exit:** `POST /sessions/{id}/end`. A `session_not_active` error means it's
      already closed; treat that as success.
@@ -723,7 +726,139 @@ start fresh. Do the same when a user signs in on a new device.
 
 ---
 
-## 13. Quick test with curl
+## 13. Next-play pocket routes
+
+After a qualifying win the Play Complete screen asks the player to choose how deep the
+next play goes. The server decides which routes exist, the labels, and both percentages.
+The client never receives click numbers or ranges for a route.
+
+### When to call it
+
+A qualifying `POST /plays/{id}/spins/{spin_id}/result` with `redirect: "next_play"` includes
+`continuation`, which is the same object as `GET /sessions/{id}/next-route`. Use that object
+to draw the screen. Call the GET again if the app is reopened on this step.
+
+`can_continue: false` means hide the cards and disable CONTINUE. `block_reason` is one of:
+
+| `block_reason` | What to show |
+|---|---|
+| `hard_exit` | Hard-exit guidance. The session is already closed. |
+| `session_not_active` | The session was ended (including manual exit). |
+| `play_in_progress` | A play is still active. |
+| `no_completed_play` | No finished play to continue from. |
+| `insufficient_balance` | Balance is zero, so another play is not offered. |
+
+`prompt` is the line above the buttons, such as `Choose Play-3 Budget`. The screen title
+stays on the finished play (`completed_play_number`). `next_play_number` is the play that
+CONTINUE will start.
+
+### Cards
+
+Render every item in `routes`, in order. Use `heading` and `detail` as written. Do not
+hard-code the mockup text: a route that covers a single pocket uses **POCKET** (Early does).
+A deeper route uses **POCKETS** because it includes the shallower pockets and then stops.
+
+`selected_route` is `null` until the player chooses. One choice only.
+
+### The two percentages
+
+Both numbers are calculated. Display them with a `%` sign. Do not substitute the mockup's
+`—%`.
+
+| Field | Meaning |
+|---|---|
+| `exposure_pct` | Route wager ÷ the applicable budget × 100, rounded to 0.1. |
+| `risk_pct` | Route wager ÷ the current balance × 100, rounded to 0.1. This is the share of the live balance that route would put in play. |
+
+The route wager is the sum of the posture bets on that route's part of the next-play map.
+Switched-off postures use the same nearest-active rule as the rest of the API.
+
+Until the player confirms next-play bets, `reference` is the session budget and the Risk
+Unit ladder for that budget (base 0.40, press 1.00, max 1.40 of budget/100, rounded to the
+cent). `reference.source` is `session_budget`.
+
+When the budget, bets, or active postures change, reprice **every** card:
+
+`POST /sessions/{id}/next-route/quote`
+
+```json
+{ "budget": 400, "base": 2, "press": 4, "max": 6, "active_postures": ["base", "press", "max"] }
+```
+
+`budget` may be sent alone. `base`, `press`, and `max` must be sent together. The response
+uses `reference.source: "quoted_bets"`. Quoting does not save the route or the bets.
+
+### Saving the choice
+
+`POST /sessions/{id}/next-route`
+
+```json
+{ "route_id": "early" }
+```
+
+`route_id` is `early`, `mid`, `deep`, or `extreme_deep`. The saved value is returned as
+`selected_route` and also on `GET /sessions/{id}` as `selected_route`. It stays in place
+through budget setup. Starting the next play copies it onto that play and clears the
+pending value. Discarding that play before the first spin puts the same route back.
+
+CONTINUE stays disabled until `selected_route` is set. Then open the existing next-play
+budget screen and call `POST /sessions/{id}/plays` as usual. If the route was not saved,
+that call returns `409 route_required`.
+
+`409 continuation_unavailable` (with `block_reason`) means the selection was rejected
+because the next play cannot start.
+
+### What each route does
+
+Deeper routes include every shallower pocket and stop after the selected depth. The play's
+`click_cap` becomes the number of spins in that route. Keep using `play_progress_pct` for
+the gauge. Do not show a click range.
+
+Reaching the end of the route without a qualifying win is a hard exit, same as any other
+cap. Manual exit (`POST /sessions/{id}/end`) still closes the session immediately and
+cancels a route that was selected but not started.
+
+### Result body when the play can continue
+
+```json
+{
+  "qualifying": true,
+  "redirect": "next_play",
+  "play_number": 2,
+  "cycle_number": 1,
+  "continuation": {
+    "can_continue": true,
+    "block_reason": null,
+    "completed_play_number": 2,
+    "next_play_number": 3,
+    "next_cycle_number": 1,
+    "prompt": "Choose Play-3 Budget",
+    "selected_route": null,
+    "reference": {
+      "budget": 890.0,
+      "base": 3.56,
+      "press": 8.9,
+      "max": 12.46,
+      "source": "session_budget"
+    },
+    "routes": [
+      {
+        "route_id": "early",
+        "heading": "EARLY POCKET DETECTED",
+        "detail": "Continue through the early pocket only on the next play.",
+        "exposure_pct": 21.4,
+        "risk_pct": 24.0
+      }
+    ]
+  }
+}
+```
+
+The example percentages are illustrative. Always display the values in the response.
+
+---
+
+## 14. Quick test with curl
 
 ```bash
 BASE=https://api.example.com/api/v1

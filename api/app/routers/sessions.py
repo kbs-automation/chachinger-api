@@ -8,6 +8,8 @@ from app.core.db import get_db
 from app.dependencies import get_current_user
 from app.models import User
 from app.schemas.common import Page
+from app.engine import postures
+from app.schemas.routes import NextRouteResponse, RouteQuoteRequest, SelectRouteRequest
 from app.schemas.sessions import (
     CreateSessionRequest,
     CreateSessionResponse,
@@ -15,8 +17,8 @@ from app.schemas.sessions import (
     RecalculateBudgetResponse,
     SessionOut,
 )
-from app.serializers import to_session_out
-from app.services import budget, engine, play_tracker
+from app.serializers import to_next_route, to_session_out
+from app.services import budget, engine, next_route, play_tracker
 from app.services import sessions as session_service
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -84,6 +86,51 @@ async def discard_session(
     await session_service.discard_unplayed_session(db, session)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{session_id}/next-route", response_model=NextRouteResponse)
+async def get_next_route(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NextRouteResponse:
+    session = await session_service.get_owned_session(db, user, session_id)
+    return to_next_route(await next_route.describe(db, session))
+
+
+@router.post("/{session_id}/next-route", response_model=NextRouteResponse)
+async def choose_next_route(
+    session_id: uuid.UUID,
+    body: SelectRouteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NextRouteResponse:
+    session = await session_service.get_owned_session(db, user, session_id, for_update=True)
+    view = await next_route.select_route(db, session, body.route_id)
+    await db.commit()
+    return to_next_route(view)
+
+
+@router.post("/{session_id}/next-route/quote", response_model=NextRouteResponse)
+async def quote_next_route(
+    session_id: uuid.UUID,
+    body: RouteQuoteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NextRouteResponse:
+    session = await session_service.get_owned_session(db, user, session_id)
+    active = postures.normalize(body.active_postures) if body.base is not None else None
+    return to_next_route(
+        await next_route.describe(
+            db,
+            session,
+            budget=body.budget,
+            base=body.base,
+            press=body.press,
+            max_bet=body.max,
+            active=active,
+        )
+    )
 
 
 @router.post("/{session_id}/end", response_model=SessionOut)

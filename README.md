@@ -76,7 +76,10 @@ All routes live under `/api/v1`. Every error has the shape `{"detail": {"code", 
    `active_postures` lists at least two of `base`, `press`, `max`. A switched-off posture's clicks are
    played at the nearest active posture below it, or above it if none is below.
    `DELETE /plays/{id}` discards a play that has no spins yet, so the player can go back to bet setup.
-5. `POST /plays/{id}/spins` (no body) is sent once per machine spin. The response gives the posture and
+5. After a qualifying result, `continuation` lists the next-play pocket routes (early, mid, deep,
+   extreme deep) with exposure and risk percentages. `POST /sessions/{id}/next-route` saves one
+   route. Plays after the first require it, and that route's depth becomes the play's spin cap.
+   `POST /plays/{id}/spins` (no body) is sent once per machine spin. The response gives the posture and
    bet amount for that spin. `POST /plays/{id}/spins/undo` reverses the latest spin if it has no result.
 6. `POST /plays/{id}/spins/{spin_id}/result` reports a payout, as either `{result: "34x" | "bonus"}`,
    `{win_amount}` (the dollar payout, converted to a multiplier of the spin's bet), or

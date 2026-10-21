@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import mode_engine, postures, zone_maps
+from app.engine import mode_engine, postures, routes, zone_maps
 from app.models import GameSession, Play
 from app.services import budget
 from app.services.errors import DomainError, not_found
@@ -41,6 +41,8 @@ async def discard_unspun_play(db: AsyncSession, play: Play, session: GameSession
         raise DomainError(409, "play_not_active", "Play is not active")
     if play.total_clicks:
         raise DomainError(409, "play_has_spins", "A play with spins cannot be discarded")
+    if play.route:
+        session.pending_route = play.route
     await db.delete(play)
     session.play_count = max((session.play_count or 0) - 1, 0)
 
@@ -83,8 +85,14 @@ async def start_play(
         p1_mode: str | None = session.p1_mode
         p1_mode_active = session.p1_mode != "entertainment"
         click_cap = config.click_cap
+        chosen_route = None
     else:
-        p1_mode, p1_mode_active, click_cap = None, False, zone_maps.P2_PLUS_CLICK_CAP
+        route = routes.get_route(session.pending_route or "")
+        if route is None:
+            raise DomainError(409, "route_required", "Choose a next-play route first")
+        p1_mode, p1_mode_active, click_cap = None, False, route.end_click
+        chosen_route: str | None = route.route_id
+        session.pending_route = None
 
     play = Play(
         session_id=session.id,
@@ -93,6 +101,7 @@ async def start_play(
         cycle_number=cycle_number,
         p1_mode=p1_mode,
         p1_mode_active=p1_mode_active,
+        route=chosen_route,
         total_clicks=0,
         click_cap=click_cap,
         confirmed_base=base,

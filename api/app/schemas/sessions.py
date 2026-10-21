@@ -47,5 +47,6 @@ class SessionOut(ResponseModel):
     play_number: int
     cycle_number: int
     execution_grade: str | None
+    selected_route: str | None = None
     started_at: datetime
     ended_at: datetime | None

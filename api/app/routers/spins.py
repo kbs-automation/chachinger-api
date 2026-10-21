@@ -16,7 +16,8 @@ from app.schemas.spins import (
     SpinResultResponse,
     UndoSpinResponse,
 )
-from app.services import engine
+from app.serializers import to_next_route
+from app.services import engine, next_route
 from app.services.errors import DomainError, not_found
 
 router = APIRouter(prefix="/plays/{play_id}/spins", tags=["spins"])
@@ -92,6 +93,9 @@ async def submit_result(
         raise not_found("spin")
     win_amount = Decimal(str(body.win_amount)) if body.win_amount is not None else None
     outcome = await engine.submit_result(db, play, session, spin, body.result, win_amount)
+    continuation = None
+    if outcome.redirect != "continue":
+        continuation = to_next_route(await next_route.describe(db, session))
     await db.commit()
     return SpinResultResponse(
         qualifying=outcome.qualifying,
@@ -101,4 +105,5 @@ async def submit_result(
         redirect=outcome.redirect,
         play_number=play.play_number,
         cycle_number=play.cycle_number,
+        continuation=continuation,
     )

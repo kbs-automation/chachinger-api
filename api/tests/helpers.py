@@ -31,11 +31,16 @@ async def begin_play(
     press: float,
     max_bet: float,
 ) -> dict[str, Any]:
-    resp = await client.post(
-        f"{API}/sessions/{session_id}/plays",
-        json={"confirmed_base": base, "confirmed_press": press, "confirmed_max": max_bet},
-        headers=headers,
-    )
+    body = {"confirmed_base": base, "confirmed_press": press, "confirmed_max": max_bet}
+    resp = await client.post(f"{API}/sessions/{session_id}/plays", json=body, headers=headers)
+    if resp.status_code == 409 and resp.json()["detail"]["code"] == "route_required":
+        chosen = await client.post(
+            f"{API}/sessions/{session_id}/next-route",
+            json={"route_id": "extreme_deep"},
+            headers=headers,
+        )
+        assert chosen.status_code == 200, chosen.text
+        resp = await client.post(f"{API}/sessions/{session_id}/plays", json=body, headers=headers)
     assert resp.status_code == 201, resp.text
     return resp.json()
 

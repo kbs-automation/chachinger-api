@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.schemas.common import MoneyOut, Posture, RequestModel, ResponseModel
+from app.schemas.routes import NextRouteResponse
 
 RESULT_INPUT_PATTERN = r"(?i)^(bonus|\d+(\.\d+)?x?)$"
 
@@ -52,6 +53,7 @@ class SpinResultResponse(ResponseModel):
     redirect: Literal["next_play", "hard_exit", "continue"]
     play_number: int
     cycle_number: int
+    continuation: NextRouteResponse | None = None
 
 
 class UndoSpinResponse(ResponseModel):
