@@ -43,6 +43,7 @@ class SessionOut(ResponseModel):
     confirmed_base: MoneyOut
     confirmed_press: MoneyOut
     confirmed_max: MoneyOut
+    confirmed_below_base: MoneyOut | None = None
     play_count: int
     play_number: int
     cycle_number: int

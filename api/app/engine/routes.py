@@ -80,11 +80,18 @@ def route_wager(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> Decimal:
     route = _BY_ID[route_id]
-    amounts = postures.effective_amounts(base, press, max_bet, active)
-    return mode_engine.zone_exposure(_through(route.end_click), *amounts)
+    return mode_engine.zone_exposure(
+        _through(route.end_click),
+        base,
+        press,
+        max_bet,
+        below_base=below_base,
+        active=active,
+    )
 
 
 def percent(part: Decimal, whole: Decimal) -> float:

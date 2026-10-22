@@ -32,10 +32,11 @@ def map_exposure(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> Decimal:
     return mode_engine.zone_exposure(
-        config.zone_map, *postures.effective_amounts(base, press, max_bet, active)
+        config.zone_map, base, press, max_bet, below_base=below_base, active=active
     )
 
 
@@ -44,9 +45,10 @@ def exposure_for_config(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> Exposure:
-    total = map_exposure(config, base, press, max_bet, active)
+    total = map_exposure(config, base, press, max_bet, active, below_base)
     return Exposure(exposure=total, required_budget=max(total, config.min_budget or ZERO))
 
 
@@ -56,12 +58,13 @@ async def calc_96_exposure(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> Exposure:
     config = await mode_engine.get_mode_config(db, mode_id)
     if config is None:
         raise not_found("mode")
-    return exposure_for_config(config, base, press, max_bet, active)
+    return exposure_for_config(config, base, press, max_bet, active, below_base)
 
 
 def suggest_bets(config: P1ModeConfig, budget: Decimal) -> tuple[Decimal, Decimal, Decimal]:
@@ -119,17 +122,18 @@ def p1_budget_target(
     press: Decimal,
     max_bet: Decimal,
     active: tuple[str, ...],
+    below_base: Decimal | None = None,
 ) -> Decimal:
     """The Session Budget Play-1 needs for these bets.
 
     The suggested ladder with every posture active keeps the player's budget and the
-    mode minimum as floors. Bets entered by hand, or played with a posture switched
-    off, cost exactly their 96-click exposure, so the budget can fall as well as rise.
+    mode minimum as floors. Bets entered by hand, a BELOW BASE amount, or a posture
+    switched off, cost exactly their 96-click exposure, so the budget can fall as well as rise.
     """
-    exposure = map_exposure(config, base, press, max_bet, active)
+    exposure = map_exposure(config, base, press, max_bet, active, below_base)
     min_budget = config.min_budget or ZERO
     by_hand = (base, press, max_bet) != suggest_bets(config, player_budget)
-    if by_hand or len(active) < len(postures.POSTURE_ORDER):
+    if by_hand or active != postures.DEFAULT_ACTIVE:
         return exposure
     player_floor = player_budget if player_budget > min_budget else ZERO
     return max(player_floor, min_budget, exposure)
@@ -141,17 +145,20 @@ async def recalculate_session_budget(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> RecalcResult:
     if session.status != "active":
         raise DomainError(409, "session_not_active", "Session is not active")
     config = await mode_engine.get_mode_config(db, session.p1_mode)
     if config is None:
         raise not_found("mode")
-    exposure = map_exposure(config, base, press, max_bet, active)
+    exposure = map_exposure(config, base, press, max_bet, active, below_base)
     if session.play_count == 0:
         player_budget = session.player_budget or session.session_budget
-        target = p1_budget_target(config, player_budget, base, press, max_bet, active)
+        target = p1_budget_target(
+            config, player_budget, base, press, max_bet, active, below_base
+        )
         required = target
     else:
         # Once Play-1 has started the budget can only grow.

@@ -25,6 +25,7 @@ class RouteQuoteRequest(RequestModel):
     base: MoneyIn | None = None
     press: MoneyIn | None = None
     max: MoneyIn | None = None
+    below_base: MoneyIn | None = None
     active_postures: ActivePostures | None = None
 
     @model_validator(mode="after")
@@ -33,7 +34,7 @@ class RouteQuoteRequest(RequestModel):
         if any(v is not None for v in supplied) and not all(v is not None for v in supplied):
             raise ValueError("base, press and max must be sent together")
         if all(v is not None for v in supplied):
-            check_ladder(self.base, self.press, self.max, self.active_postures)
+            check_ladder(self.base, self.press, self.max, self.active_postures, self.below_base)
         return self
 
 
@@ -50,6 +51,7 @@ class RouteReferenceOut(ResponseModel):
     base: MoneyOut
     press: MoneyOut
     max: MoneyOut
+    below_base: MoneyOut | None = None
     source: Literal["session_budget", "quoted_bets"]
 
 

@@ -53,7 +53,8 @@ async def start_play(
     base: Decimal,
     press: Decimal,
     max_bet: Decimal,
-    active: tuple[str, ...] = postures.POSTURE_ORDER,
+    active: tuple[str, ...] = postures.DEFAULT_ACTIVE,
+    below_base: Decimal | None = None,
 ) -> Play:
     if session.status != "active":
         raise DomainError(409, "session_not_active", "Session is not active")
@@ -74,6 +75,7 @@ async def start_play(
             press,
             max_bet,
             active,
+            below_base,
         )
         if required > session.session_budget:
             raise DomainError(
@@ -107,6 +109,7 @@ async def start_play(
         confirmed_base=base,
         confirmed_press=press,
         confirmed_max=max_bet,
+        confirmed_below_base=below_base,
         active_postures=postures.to_column(active),
         status="active",
     )
@@ -116,5 +119,6 @@ async def start_play(
     session.confirmed_base = base
     session.confirmed_press = press
     session.confirmed_max = max_bet
+    session.confirmed_below_base = below_base
     await db.flush()
     return play

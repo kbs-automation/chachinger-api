@@ -27,6 +27,7 @@ class RouteReference:
     press: Decimal
     max: Decimal
     source: str
+    below_base: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -49,10 +50,11 @@ def _cards(
     press: Decimal,
     max_bet: Decimal,
     active: tuple[str, ...],
+    below_base: Decimal | None = None,
 ) -> tuple[RouteCard, ...]:
     cards: list[RouteCard] = []
     for route in routes.ROUTES:
-        wager = routes.route_wager(route.route_id, base, press, max_bet, active)
+        wager = routes.route_wager(route.route_id, base, press, max_bet, active, below_base)
         cards.append(
             RouteCard(
                 route_id=route.route_id,
@@ -74,6 +76,7 @@ async def describe(
     press: Decimal | None = None,
     max_bet: Decimal | None = None,
     active: tuple[str, ...] | None = None,
+    below_base: Decimal | None = None,
 ) -> Continuation:
     """Routes the engine will accept for the next play, priced for the given ladder.
 
@@ -98,7 +101,13 @@ async def describe(
         source = "session_budget" if budget is None else "quoted_bets"
     else:
         source = "quoted_bets"
-    chosen = active or postures.POSTURE_ORDER
+    chosen = active or postures.chosen(None, below_base)
+    if below_base is not None and below_base > base:
+        raise DomainError(
+            422,
+            "invalid_ladder",
+            "active bets must satisfy below_base ≤ base ≤ press ≤ max",
+        )
     return Continuation(
         can_continue=True,
         block_reason=None,
@@ -107,8 +116,10 @@ async def describe(
         next_cycle_number=next_cycle,
         prompt=f"Choose Play-{next_play} Budget",
         selected_route=session.pending_route,
-        reference=RouteReference(priced_budget, base, press, max_bet, source),
-        routes=_cards(priced_budget, session.current_balance, base, press, max_bet, chosen),
+        reference=RouteReference(priced_budget, base, press, max_bet, source, below_base),
+        routes=_cards(
+            priced_budget, session.current_balance, base, press, max_bet, chosen, below_base
+        ),
     )
 
 

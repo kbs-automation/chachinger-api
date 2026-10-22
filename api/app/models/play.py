@@ -57,8 +57,9 @@ class Play(Base):
     confirmed_base: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_press: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_max: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    confirmed_below_base: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     active_postures: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=ALL_POSTURES, server_default=ALL_POSTURES
+        String(40), nullable=False, default=ALL_POSTURES, server_default=ALL_POSTURES
     )
     qualifying_result: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
     result_type: Mapped[str | None] = mapped_column(String(20))

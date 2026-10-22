@@ -22,7 +22,7 @@ SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due", "canceled")
 SESSION_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 PLAY_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 RESULT_TYPES = ("multiplier", "bonus", "hard_exit", "manual_exit")
-POSTURES = ("base", "press", "max", "early_attack")
+POSTURES = ("base", "press", "max", "early_attack", "below_base")
 ROUTE_IDS = ("early", "mid", "deep", "extreme_deep")
 
 

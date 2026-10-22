@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.engine import postures
 from app.models import P1ModeConfig
 
 ZONE_POSTURES = ("base", "press", "max")
@@ -30,13 +31,27 @@ def posture_at(zones: list[dict[str, Any]], click: int) -> str:
 
 
 def zone_exposure(
-    zones: list[dict[str, Any]], base: Decimal, press: Decimal, max_bet: Decimal
+    zones: list[dict[str, Any]],
+    base: Decimal,
+    press: Decimal,
+    max_bet: Decimal,
+    *,
+    below_base: Decimal | None = None,
+    active: tuple[str, ...] | None = None,
 ) -> Decimal:
-    amounts = {"base": base, "press": press, "max": max_bet}
-    total = sum(
-        (Decimal(int(z["e"]) - int(z["s"]) + 1) * amounts.get(z["t"], base) for z in zones),
-        Decimal("0"),
-    )
+    chosen = active or postures.DEFAULT_ACTIVE
+    enabled = below_base is not None and "below_base" in chosen
+    amounts = {
+        "below_base": below_base if below_base is not None else base,
+        "base": base,
+        "press": press,
+        "max": max_bet,
+    }
+    total = Decimal("0")
+    for zone in zones:
+        posture = postures.resolve(str(zone["t"]), chosen, below_base_enabled=enabled)
+        clicks = Decimal(int(zone["e"]) - int(zone["s"]) + 1)
+        total += clicks * amounts.get(posture, base)
     return total.quantize(CENTS)
 
 

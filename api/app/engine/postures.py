@@ -7,21 +7,29 @@ or above it when nothing below is active (same rule as the mobile app).
 from collections.abc import Iterable
 from decimal import Decimal
 
-POSTURE_ORDER: tuple[str, ...] = ("base", "press", "max")
-ALL_POSTURES = ",".join(POSTURE_ORDER)
+POSTURE_ORDER: tuple[str, ...] = ("below_base", "base", "press", "max")
+DEFAULT_ACTIVE: tuple[str, ...] = ("base", "press", "max")
+ALL_POSTURES = ",".join(DEFAULT_ACTIVE)
 MIN_ACTIVE = 2
 
 
-def normalize(active: Iterable[str] | None) -> tuple[str, ...]:
+def normalize(active: Iterable[str] | None, *, include_below_base: bool = False) -> tuple[str, ...]:
     if active is None:
-        return POSTURE_ORDER
-    chosen = set(active)
-    unknown = chosen - set(POSTURE_ORDER)
+        chosen = ["below_base", *DEFAULT_ACTIVE] if include_below_base else list(DEFAULT_ACTIVE)
+        return tuple(chosen)
+    selected = set(active)
+    unknown = selected - set(POSTURE_ORDER)
     if unknown:
         raise ValueError(f"unknown postures: {sorted(unknown)}")
-    if len(chosen) < MIN_ACTIVE:
+    if len(selected) < MIN_ACTIVE:
         raise ValueError(f"at least {MIN_ACTIVE} postures must stay active")
-    return tuple(p for p in POSTURE_ORDER if p in chosen)
+    return tuple(p for p in POSTURE_ORDER if p in selected)
+
+
+def chosen(active: Iterable[str] | None, below_base: Decimal | None) -> tuple[str, ...]:
+    """Active set for a ladder. An omitted list plus a BELOW BASE amount turns that posture on."""
+    include = below_base is not None and (active is None or "below_base" in set(active))
+    return normalize(active, include_below_base=include)
 
 
 def to_column(active: Iterable[str] | None) -> str:
@@ -30,8 +38,16 @@ def to_column(active: Iterable[str] | None) -> str:
 
 def from_column(value: str | None) -> tuple[str, ...]:
     if not value:
-        return POSTURE_ORDER
+        return DEFAULT_ACTIVE
     return normalize(v for v in value.split(",") if v)
+
+
+def resolve(map_posture: str, active: tuple[str, ...], *, below_base_enabled: bool) -> str:
+    """Map posture after toggles. An active BELOW BASE amount replaces BASE."""
+    resolved = effective(map_posture, active)
+    if below_base_enabled and resolved == "base" and "below_base" in active:
+        return "below_base"
+    return resolved
 
 
 def effective(posture: str, active: tuple[str, ...]) -> str:
@@ -58,8 +74,19 @@ def effective_amounts(
     )
 
 
-def ordered(base: Decimal, press: Decimal, max_bet: Decimal, active: tuple[str, ...]) -> bool:
+def ordered(
+    base: Decimal,
+    press: Decimal,
+    max_bet: Decimal,
+    active: tuple[str, ...],
+    below_base: Decimal | None = None,
+) -> bool:
     """Active postures must not descend; switched-off ones are ignored."""
-    amounts = {"base": base, "press": press, "max": max_bet}
-    values = [amounts[p] for p in active]
-    return all(a <= b for a, b in zip(values, values[1:], strict=False))
+    amounts = {"below_base": below_base, "base": base, "press": press, "max": max_bet}
+    values: list[Decimal] = []
+    for posture in active:
+        amount = amounts[posture]
+        if amount is None:
+            return False
+        values.append(amount)
+    return all(left <= right for left, right in zip(values, values[1:], strict=False))

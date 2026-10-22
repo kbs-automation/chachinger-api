@@ -39,6 +39,7 @@ class GameSession(Base):
     confirmed_base: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_press: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     confirmed_max: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    confirmed_below_base: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     play_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     cycle_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")

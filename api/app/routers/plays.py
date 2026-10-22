@@ -68,6 +68,7 @@ async def start_play(
         body.confirmed_press,
         body.confirmed_max,
         body.chosen_postures,
+        body.confirmed_below_base,
     )
     posture, bet = await engine.upcoming_bet(db, play)
     await db.commit()
@@ -82,6 +83,7 @@ async def start_play(
         click_cap=play.click_cap,
         current_balance=session.current_balance,
         session_budget=session.session_budget,
+        confirmed_below_base=play.confirmed_below_base,
     )
 
 

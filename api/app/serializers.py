@@ -38,6 +38,7 @@ def to_session_out(session: GameSession) -> SessionOut:
         confirmed_base=session.confirmed_base,
         confirmed_press=session.confirmed_press,
         confirmed_max=session.confirmed_max,
+        confirmed_below_base=session.confirmed_below_base,
         play_count=session.play_count,
         play_number=current_play_number(session),
         cycle_number=session.cycle_number,
@@ -65,6 +66,7 @@ def to_next_route(view: Continuation) -> NextRouteResponse:
             base=reference.base,
             press=reference.press,
             max=reference.max,
+            below_base=reference.below_base,
             source=reference.source,
         ),
         routes=[

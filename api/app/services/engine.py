@@ -60,8 +60,11 @@ async def get_posture(db: AsyncSession, play: Play, click: int) -> str:
         zones = await mode_engine.load_zone_map(db, play.p1_mode)
     else:
         zones = zone_maps.ENTERTAINMENT_ZONES
-    posture = postures.effective(
-        mode_engine.posture_at(zones, click), postures.from_column(play.active_postures)
+    active = postures.from_column(play.active_postures)
+    posture = postures.resolve(
+        mode_engine.posture_at(zones, click),
+        active,
+        below_base_enabled=play.confirmed_below_base is not None and "below_base" in active,
     )
     if early_attack.in_window(click) and await engine_config.get_value(db, "early_attack_enabled"):
         if early_attack.authorize(early_attack.EarlyAttackSignals(current_click=click)):
@@ -77,6 +80,8 @@ def bet_for_posture(play: Play, posture: str) -> Decimal:
         return play.confirmed_press
     if posture == "early_attack":
         return ru_calc.money_down(play.confirmed_press * early_attack.SIZE_FACTOR)
+    if posture == "below_base" and play.confirmed_below_base is not None:
+        return play.confirmed_below_base
     return play.confirmed_base
 
 

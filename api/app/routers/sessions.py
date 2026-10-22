@@ -56,7 +56,13 @@ async def recalculate_budget(
 ) -> RecalculateBudgetResponse:
     session = await session_service.get_owned_session(db, user, session_id, for_update=True)
     result = await budget.recalculate_session_budget(
-        db, session, body.base, body.press, body.max, body.chosen_postures
+        db,
+        session,
+        body.base,
+        body.press,
+        body.max,
+        body.chosen_postures,
+        body.below_base,
     )
     await db.commit()
     return RecalculateBudgetResponse(
@@ -119,7 +125,11 @@ async def quote_next_route(
     db: AsyncSession = Depends(get_db),
 ) -> NextRouteResponse:
     session = await session_service.get_owned_session(db, user, session_id)
-    active = postures.normalize(body.active_postures) if body.base is not None else None
+    active = (
+        postures.chosen(body.active_postures, body.below_base)
+        if body.base is not None or body.below_base is not None
+        else None
+    )
     return to_next_route(
         await next_route.describe(
             db,
@@ -129,6 +139,7 @@ async def quote_next_route(
             press=body.press,
             max_bet=body.max,
             active=active,
+            below_base=body.below_base,
         )
     )
 

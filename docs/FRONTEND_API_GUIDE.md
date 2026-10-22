@@ -347,8 +347,11 @@ The current seed data is shown below. Always read the live values from `GET /mod
 - The player may switch postures off, but **at least 2 must stay active**. Send the active
   ones as `active_postures`, e.g. `["base", "max"]`. Omitting the field means all three are
   active.
-- Amounts of active postures must be in order: **base ≤ press ≤ max** (a 422 otherwise). The
-  amount sent for a switched-off posture is ignored, but it must still be a valid number
+- Amounts of active postures must be in order: **below_base ≤ base ≤ press ≤ max** (a 422
+  otherwise). `below_base` is optional. When it is sent and active, every click the map
+  marks as BASE is played as `below_base` at that amount, and budget and route quotes use
+  that amount. Omit it and those clicks stay BASE.
+- The amount sent for a switched-off posture is ignored, but it must still be a valid number
   greater than 0. Sending the nearest active amount is simplest.
 - When the map lands on a switched-off posture, the server plays the **nearest active
   posture below** it, or the nearest above if there is none below. For example, with PRESS
