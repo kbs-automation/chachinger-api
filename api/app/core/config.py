@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     datadog_api_key: str = ""
     cors_origins: str = "https://app.cha3535.com,https://admin.cha3535.com"
     rate_limit_enabled: bool = True
+    # When true, Play Complete / next-route responses include the mission decision
+    # contract (compat-mapped from pocket routes until the full P2+ engine ships).
+    mission_critical_engine: bool = False
 
     @property
     def is_production(self) -> bool:

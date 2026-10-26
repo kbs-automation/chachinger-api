@@ -94,8 +94,10 @@ async def submit_result(
     win_amount = Decimal(str(body.win_amount)) if body.win_amount is not None else None
     outcome = await engine.submit_result(db, play, session, spin, body.result, win_amount)
     continuation = None
+    decision = None
     if outcome.redirect != "continue":
-        continuation = to_next_route(await next_route.describe(db, session))
+        continuation = to_next_route(await next_route.describe(db, session), session)
+        decision = continuation.decision
     await db.commit()
     return SpinResultResponse(
         qualifying=outcome.qualifying,
@@ -106,4 +108,5 @@ async def submit_result(
         play_number=play.play_number,
         cycle_number=play.cycle_number,
         continuation=continuation,
+        decision=decision,
     )

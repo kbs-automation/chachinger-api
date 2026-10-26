@@ -861,7 +861,67 @@ The example percentages are illustrative. Always display the values in the respo
 
 ---
 
-## 14. Quick test with curl
+## 15. Mission decision contract (Play Complete conclusions)
+
+Feature flag: `MISSION_CRITICAL_ENGINE` (default **false**).
+
+When **false**, responses look exactly as in section 13 (`decision` is `null` / omitted in practice as null). Pocket routes remain the continuation UI.
+
+When **true**, these endpoints also return a conclusions payload:
+
+- `POST /plays/{id}/spins/{spin_id}/result` → top-level `decision` (and `continuation.decision`)
+- `GET|POST /sessions/{id}/next-route` and `.../quote` → `decision` on the next-route body
+
+### Field meanings (Flutter should bind here)
+
+| Field | Meaning |
+|---|---|
+| `continuation_authority` | `none` \| `limited` \| `extended` \| `deep_burn` |
+| `hard_exit_state` | `normal` \| `hard_exit_watch` \| `hard_exit_pending` \| `hard_exit` |
+| `final_action` | `continue` \| `exit` |
+| `primary_action` | `continue` \| `continue_controlled` \| `exit_machine` |
+| `guidance_key` | Locked Tab-26 key (`ui_001_continue` … `ui_015_manual_exit`) |
+| `live_final_authority` | `below_base` \| `base` \| `press` \| `max` \| null — show this posture, not planned |
+| `planned_band_authority` | Pre-safety authority (audit); do not show as the bet tip when it differs |
+| `bridge_state` | `off` \| `active` \| `pre_entry` |
+| `legacy_route_id` | Transitional pocket id while the full target engine is unfinished |
+| `engine_version` / `config_version` / `parser_version` | Replay / support stamps |
+| `source` | `legacy_pocket_compat` today; later `mission_critical` |
+
+### Important limits (current phase)
+
+- `source: legacy_pocket_compat` means labels are **mapped from pocket routes**, not from Enhanced Sheet / WBA / safety yet.
+- Do **not** treat `live_final_authority` as workbook regional wager authority until `source` is `mission_critical`.
+- Keep sending optional `confirmed_below_base` only when the user/server enabled BELOW BASE; do not put `below_base` in `active_postures` on every P2+ start.
+- Main Play Complete UI: conclusions + `primary_action` + `guidance_key` copy. Keep pocket cards secondary until the full engine ships.
+
+Example (flag on, qualifying play, no route chosen yet):
+
+```json
+{
+  "decision_id": "…",
+  "source": "legacy_pocket_compat",
+  "continuation_authority": "limited",
+  "hard_exit_state": "normal",
+  "final_action": "continue",
+  "primary_action": "continue",
+  "guidance_key": "ui_002_short_route",
+  "planned_band_authority": "base",
+  "live_final_authority": "base",
+  "bridge_state": "off",
+  "exit_reason": null,
+  "engine_version": "0.1.0-foundation",
+  "config_version": "0.1.0",
+  "parser_version": "0.0.0-stub",
+  "calculated_at": "2026-10-26T12:00:00+00:00",
+  "legacy_route_id": "early",
+  "notes": ["compat: pocket route mapped to continuation labels only"]
+}
+```
+
+---
+
+## 16. Quick test with curl
 
 ```bash
 BASE=https://api.example.com/api/v1

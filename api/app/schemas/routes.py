@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import model_validator
 
 from app.schemas.common import ActivePostures, MoneyIn, MoneyOut, RequestModel, ResponseModel, check_ladder
+from app.schemas.decision import MissionDecisionOut
 
 RouteId = Literal["early", "mid", "deep", "extreme_deep"]
 BlockReason = Literal[
@@ -65,3 +66,5 @@ class NextRouteResponse(ResponseModel):
     selected_route: RouteId | None
     reference: RouteReferenceOut | None
     routes: list[RouteCardOut]
+    # Present when MISSION_CRITICAL_ENGINE=true. Prefer this over inventing UX from routes[].
+    decision: MissionDecisionOut | None = None

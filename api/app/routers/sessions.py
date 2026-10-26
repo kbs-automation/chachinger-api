@@ -101,7 +101,9 @@ async def get_next_route(
     db: AsyncSession = Depends(get_db),
 ) -> NextRouteResponse:
     session = await session_service.get_owned_session(db, user, session_id)
-    return to_next_route(await next_route.describe(db, session))
+    return to_next_route(
+        await next_route.describe(db, session), session, persist_decision=False
+    )
 
 
 @router.post("/{session_id}/next-route", response_model=NextRouteResponse)
@@ -113,8 +115,9 @@ async def choose_next_route(
 ) -> NextRouteResponse:
     session = await session_service.get_owned_session(db, user, session_id, for_update=True)
     view = await next_route.select_route(db, session, body.route_id)
+    response = to_next_route(view, session)
     await db.commit()
-    return to_next_route(view)
+    return response
 
 
 @router.post("/{session_id}/next-route/quote", response_model=NextRouteResponse)
@@ -140,7 +143,9 @@ async def quote_next_route(
             max_bet=body.max,
             active=active,
             below_base=body.below_base,
-        )
+        ),
+        session,
+        persist_decision=False,
     )
 
 

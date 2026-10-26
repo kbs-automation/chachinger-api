@@ -3,7 +3,7 @@ from app.models import GameSession, User
 from app.schemas.auth import UserProfile
 from app.schemas.routes import NextRouteResponse, RouteCardOut, RouteReferenceOut
 from app.schemas.sessions import SessionOut
-from app.services import storage
+from app.services import mission_decision, storage
 from app.services.next_route import Continuation
 
 
@@ -49,8 +49,16 @@ def to_session_out(session: GameSession) -> SessionOut:
     )
 
 
-def to_next_route(view: Continuation) -> NextRouteResponse:
+def to_next_route(
+    view: Continuation,
+    session: GameSession | None = None,
+    *,
+    persist_decision: bool = True,
+) -> NextRouteResponse:
     reference = view.reference
+    decision = None
+    if session is not None:
+        decision = mission_decision.optional_out(view, session, persist=persist_decision)
     return NextRouteResponse(
         can_continue=view.can_continue,
         block_reason=view.block_reason,
@@ -79,4 +87,5 @@ def to_next_route(view: Continuation) -> NextRouteResponse:
             )
             for card in view.routes
         ],
+        decision=decision,
     )

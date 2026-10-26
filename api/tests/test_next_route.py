@@ -117,13 +117,14 @@ async def test_routes_are_unavailable_before_a_play_finishes(client):
     session = await new_session(client, headers, "entertainment", 500)
     offer = (await client.get(f"{API}/sessions/{session['session_id']}/next-route", headers=headers)).json()
     assert offer == {
-        "can_continue": False,
-        "block_reason": "no_completed_play",
-        "completed_play_number": None,
-        "next_play_number": None,
-        "next_cycle_number": None,
-        "prompt": None,
-        "selected_route": None,
-        "reference": None,
-        "routes": [],
-    }
+            "can_continue": False,
+            "block_reason": "no_completed_play",
+            "completed_play_number": None,
+            "next_play_number": None,
+            "next_cycle_number": None,
+            "prompt": None,
+            "selected_route": None,
+            "reference": None,
+            "routes": [],
+            "decision": None,
+        }

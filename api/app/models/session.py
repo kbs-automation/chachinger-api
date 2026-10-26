@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Any
+
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -15,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import P1_MODES, ROUTE_IDS, SESSION_STATUSES, Base, in_list, utcnow
+from app.models.base import JSONType, P1_MODES, ROUTE_IDS, SESSION_STATUSES, Base, in_list, utcnow
 
 
 class GameSession(Base):
@@ -49,6 +51,8 @@ class GameSession(Base):
     execution_grade: Mapped[str | None] = mapped_column(String(4))
     # Route chosen on Play Complete, held until the next play starts.
     pending_route: Mapped[str | None] = mapped_column(String(20))
+    # Latest mission-critical decision snapshot (DM-134). Null when flag is off.
+    last_decision: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
     )
