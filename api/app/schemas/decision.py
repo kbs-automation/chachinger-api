@@ -31,19 +31,22 @@ GuidanceKey = Literal[
 
 
 class MissionDecisionOut(ResponseModel):
-    """Conclusions-only payload. Do not infer posture from pocket routes when this is present."""
+    """Conclusions-only payload. Continuation and wager authority are independent fields."""
 
     decision_id: str
     source: DecisionSource
+    # Continuation decision (how far) — independent of wager.
     continuation_authority: ContinuationAuthority
     hard_exit_state: HardExitState
     final_action: FinalAction
     primary_action: PrimaryAction
     guidance_key: GuidanceKey
+    # Wager authority (how much) — planned vs safety-adjusted final.
     planned_band_authority: WagerAuthority | None = None
     live_final_authority: WagerAuthority | None = None
     bridge_state: BridgeState = "off"
     exit_reason: str | None = None
+    input_quality: Literal["ready", "degraded", "invalid"] | None = None
     engine_version: str
     config_version: str
     parser_version: str

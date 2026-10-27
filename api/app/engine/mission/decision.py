@@ -50,8 +50,9 @@ class MissionDecision:
     config_version: str
     parser_version: str
     calculated_at: str
-    # Transitional: pocket route id while full target engine is unfinished.
+    # Transitional: pocket route id while clients still select pockets.
     legacy_route_id: str | None = None
+    input_quality: str | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:

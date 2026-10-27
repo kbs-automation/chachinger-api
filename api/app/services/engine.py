@@ -8,9 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.engine import early_attack, mode_engine, postures, ru_calc, zone_maps
+from app.engine.mission.pipeline import authority_at_click
 from app.models import GameSession, Play, Spin
 from app.models.base import utcnow
-from app.services import engine_config
+from app.services import engine_config, mission_decision
 from app.services.errors import DomainError
 
 QUALIFYING_MULTIPLIER = Decimal("10")
@@ -53,9 +54,28 @@ def progress_pct(click: int, click_cap: int) -> int:
     return int(pct)
 
 
-async def get_posture(db: AsyncSession, play: Play, click: int) -> str:
+async def get_posture(
+    db: AsyncSession, play: Play, click: int, session: GameSession | None = None
+) -> str:
+    # P2+ with mission engine + route plan: LIVE_FINAL_AUTHORITY from WBA/safety.
+    if (
+        session is not None
+        and not play.p1_mode_active
+        and mission_decision.enabled()
+    ):
+        plan = mission_decision.load_route_plan(session)
+        if plan is not None and plan.targets:
+            _planned, live, _bridge = authority_at_click(
+                plan,
+                click,
+                below_base_available=play.confirmed_below_base is not None
+                and "below_base" in postures.from_column(play.active_postures),
+            )
+            active = postures.from_column(play.active_postures)
+            return postures.resolve(live, active, below_base_enabled=False)
+
     # Active P1 modes (Strike, Pursuit, …) read their map from the DB.
-    # Entertainment P1 and every Play-2+ use the standard Entertainment map.
+    # Entertainment P1 and every Play-2+ without a route plan use the standard map.
     if play.p1_mode_active and play.p1_mode:
         zones = await mode_engine.load_zone_map(db, play.p1_mode)
     else:
@@ -85,9 +105,11 @@ def bet_for_posture(play: Play, posture: str) -> Decimal:
     return play.confirmed_base
 
 
-async def upcoming_bet(db: AsyncSession, play: Play) -> tuple[str, Decimal]:
+async def upcoming_bet(
+    db: AsyncSession, play: Play, session: GameSession | None = None
+) -> tuple[str, Decimal]:
     click = min(play.total_clicks + 1, play.click_cap)
-    posture = await get_posture(db, play, click)
+    posture = await get_posture(db, play, click, session)
     return posture, bet_for_posture(play, posture)
 
 
@@ -122,10 +144,10 @@ async def process_spin(db: AsyncSession, play: Play, session: GameSession) -> Sp
     next_click = play.total_clicks + 1
     if next_click > play.click_cap:
         await _hard_exit(db, play, session)
-        last_posture = await get_posture(db, play, play.click_cap)
+        last_posture = await get_posture(db, play, play.click_cap, session)
         return SpinOutcome(None, last_posture, Decimal("0"), 100, True, "hard_exit")
 
-    posture = await get_posture(db, play, next_click)
+    posture = await get_posture(db, play, next_click, session)
     bet = bet_for_posture(play, posture)
     spin = Spin(play_id=play.id, click_number=next_click, posture=posture, bet_amount=bet)
     db.add(spin)
@@ -233,7 +255,7 @@ async def undo_last_spin(db: AsyncSession, play: Play, session: GameSession) -> 
     await db.delete(spin)
 
     shown_click = max(play.total_clicks, 1)
-    posture = await get_posture(db, play, shown_click)
+    posture = await get_posture(db, play, shown_click, session)
     return UndoOutcome(
         posture=posture,
         bet_amount=bet_for_posture(play, posture),

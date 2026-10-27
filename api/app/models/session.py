@@ -53,6 +53,9 @@ class GameSession(Base):
     pending_route: Mapped[str | None] = mapped_column(String(20))
     # Latest mission-critical decision snapshot (DM-134). Null when flag is off.
     last_decision: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # Last normalized Enhanced Sheet + live route plan for P2+ WBA posture.
+    enhanced_sheet: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    route_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
     )

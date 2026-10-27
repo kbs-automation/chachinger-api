@@ -7,6 +7,10 @@ from app.schemas.common import MoneyOut, Posture, RequestModel, ResponseModel
 from app.schemas.decision import MissionDecisionOut
 from app.schemas.routes import NextRouteResponse
 
+WagerAuthority = Literal["below_base", "base", "press", "max"]
+ContinuationAuthority = Literal["none", "limited", "extended", "deep_burn"]
+BridgeState = Literal["off", "active", "pre_entry"]
+
 RESULT_INPUT_PATTERN = r"(?i)^(bonus|\d+(\.\d+)?x?)$"
 
 
@@ -22,6 +26,11 @@ class SpinResponse(ResponseModel):
     at_hard_exit_cap: bool
     current_balance: MoneyOut
     redirect: Literal["continue", "hard_exit"]
+    # Point 5: separate wager vs continuation when mission engine is on.
+    planned_band_authority: WagerAuthority | None = None
+    live_final_authority: WagerAuthority | None = None
+    continuation_authority: ContinuationAuthority | None = None
+    bridge_state: BridgeState | None = None
 
 
 class SpinResultRequest(RequestModel):

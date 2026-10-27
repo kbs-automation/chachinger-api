@@ -9,6 +9,7 @@ from app.dependencies import get_current_user
 from app.models import User
 from app.schemas.common import Page
 from app.engine import postures
+from app.engine.mission.sheet import EnhancedSheetRaw
 from app.schemas.routes import NextRouteResponse, RouteQuoteRequest, SelectRouteRequest
 from app.schemas.sessions import (
     CreateSessionRequest,
@@ -17,9 +18,11 @@ from app.schemas.sessions import (
     RecalculateBudgetResponse,
     SessionOut,
 )
+from app.schemas.sheet import EnhancedSheetRequest, EnhancedSheetResponse
 from app.serializers import to_next_route, to_session_out
-from app.services import budget, engine, next_route, play_tracker
+from app.services import budget, engine, mission_decision, next_route, play_tracker
 from app.services import sessions as session_service
+from app.services.errors import DomainError
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -92,6 +95,56 @@ async def discard_session(
     await session_service.discard_unplayed_session(db, session)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{session_id}/enhanced-sheet", response_model=EnhancedSheetResponse)
+async def submit_enhanced_sheet(
+    session_id: uuid.UUID,
+    body: EnhancedSheetRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> EnhancedSheetResponse:
+    """Ingest Enhanced Excel cell values and run the mission pipeline (points 4–5)."""
+    if not mission_decision.enabled():
+        raise DomainError(
+            409,
+            "mission_engine_disabled",
+            "Enable MISSION_CRITICAL_ENGINE to submit Enhanced Sheet data",
+        )
+    session = await session_service.get_owned_session(db, user, session_id, for_update=True)
+    raw = EnhancedSheetRaw(
+        row_2=body.row_2,
+        row_4=body.row_4,
+        row_5=body.row_5,
+        row_7=body.row_7,
+        row_8=body.row_8,
+        row_9=body.row_9,
+        row_10=body.row_10,
+        row_17=body.row_17,
+        row_18=body.row_18,
+        row_19=body.row_19,
+        primary_density_pct=body.primary_density_pct,
+        secondary_density_pct=body.secondary_density_pct,
+        density_sample_n=body.density_sample_n,
+        density_strength=body.density_strength,
+        pockets=body.pockets,
+        source_schema_version=body.source_schema_version,
+        prev_ending_click=body.prev_ending_click,
+        prev_multiplier=body.prev_multiplier,
+        prior_ending_click=body.prior_ending_click,
+    )
+    decision = mission_decision.decide_from_sheet(
+        session, raw, legacy_route_id=session.pending_route, persist=True
+    )
+    await db.commit()
+    sheet = session.enhanced_sheet or {}
+    return EnhancedSheetResponse(
+        input_quality=str(sheet.get("input_quality") or decision.input_quality or "invalid"),
+        warnings=list(sheet.get("warnings") or []),
+        conflicts=list(sheet.get("conflicts") or []),
+        parser_version=str(sheet.get("parser_version") or decision.parser_version),
+        decision=mission_decision.to_out(decision),
+    )
 
 
 @router.get("/{session_id}/next-route", response_model=NextRouteResponse)

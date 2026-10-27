@@ -865,57 +865,72 @@ The example percentages are illustrative. Always display the values in the respo
 
 Feature flag: `MISSION_CRITICAL_ENGINE` (default **false**).
 
-When **false**, responses look exactly as in section 13 (`decision` is `null` / omitted in practice as null). Pocket routes remain the continuation UI.
+When **false**, responses look exactly as in section 13 (`decision` is `null`). Pocket routes remain the continuation UI. P2+ spins still use the zone map.
 
-When **true**, these endpoints also return a conclusions payload:
+When **true**:
 
-- `POST /plays/{id}/spins/{spin_id}/result` → top-level `decision` (and `continuation.decision`)
-- `GET|POST /sessions/{id}/next-route` and `.../quote` → `decision` on the next-route body
+1. Submit Enhanced Sheet after a completed play (or before choosing the next route):
+   - `POST /sessions/{id}/enhanced-sheet` with row arrays (`row_8`, `row_9`, `row_10`, …).
+   - Response includes `input_quality` (`ready` \| `degraded` \| `invalid`) and a full `decision`.
+2. Play Complete / next-route also return `decision` (from sheet pipeline when a sheet was stored; otherwise pocket compat).
+3. Spins on P2+ expose **separate** fields:
+   - `posture` / `live_final_authority` — what to bet now (safety-adjusted)
+   - `planned_band_authority` — pre-safety WBA
+   - `continuation_authority` — how far the route may go (independent)
+   - `bridge_state` — `off` \| `active` \| `pre_entry`
 
 ### Field meanings (Flutter should bind here)
 
 | Field | Meaning |
 |---|---|
-| `continuation_authority` | `none` \| `limited` \| `extended` \| `deep_burn` |
+| `continuation_authority` | `none` \| `limited` \| `extended` \| `deep_burn` — **how far** |
 | `hard_exit_state` | `normal` \| `hard_exit_watch` \| `hard_exit_pending` \| `hard_exit` |
 | `final_action` | `continue` \| `exit` |
 | `primary_action` | `continue` \| `continue_controlled` \| `exit_machine` |
 | `guidance_key` | Locked Tab-26 key (`ui_001_continue` … `ui_015_manual_exit`) |
-| `live_final_authority` | `below_base` \| `base` \| `press` \| `max` \| null — show this posture, not planned |
-| `planned_band_authority` | Pre-safety authority (audit); do not show as the bet tip when it differs |
+| `live_final_authority` | `below_base` \| `base` \| `press` \| `max` \| null — **show this**, not planned |
+| `planned_band_authority` | Pre-safety authority (audit only when it differs from live) |
 | `bridge_state` | `off` \| `active` \| `pre_entry` |
-| `legacy_route_id` | Transitional pocket id while the full target engine is unfinished |
-| `engine_version` / `config_version` / `parser_version` | Replay / support stamps |
-| `source` | `legacy_pocket_compat` today; later `mission_critical` |
+| `input_quality` | `ready` \| `degraded` \| `invalid` |
+| `legacy_route_id` | Optional pocket id while UI still shows route cards |
+| `source` | `mission_critical` when sheet pipeline ran; else `legacy_pocket_compat` |
 
-### Important limits (current phase)
+### Wager rules when `source` is `mission_critical`
 
-- `source: legacy_pocket_compat` means labels are **mapped from pocket routes**, not from Enhanced Sheet / WBA / safety yet.
-- Do **not** treat `live_final_authority` as workbook regional wager authority until `source` is `mission_critical`.
-- Keep sending optional `confirmed_below_base` only when the user/server enabled BELOW BASE; do not put `below_base` in `active_postures` on every P2+ start.
-- Main Play Complete UI: conclusions + `primary_action` + `guidance_key` copy. Keep pocket cards secondary until the full engine ships.
+- Bridges / unsupported gaps → planned **BELOW BASE** (executes as BASE if no `confirmed_below_base` amount).
+- PRESS/MAX only inside qualified targets with live support (Row 8/9 + Row 10 + corroboration for MAX).
+- S12+ (deep clicks) → MAX disabled; BASE typical.
+- Safety may downgrade planned → live (e.g. containment → BASE) without deleting continuation.
+- **Do not** infer posture from pocket cards when `decision` / spin authority fields are present.
 
-Example (flag on, qualifying play, no route chosen yet):
+### Important client rules
+
+- Omit `confirmed_below_base` / `below_base` in `active_postures` unless BELOW BASE is intentionally enabled.
+- On `input_quality: invalid` or `final_action: exit`, show EXIT — do not invent bets.
+- Main Play Complete UI: `guidance_key` + `primary_action` + `live_final_authority`.
+
+Example (`source: mission_critical` after Enhanced Sheet):
 
 ```json
 {
   "decision_id": "…",
-  "source": "legacy_pocket_compat",
-  "continuation_authority": "limited",
+  "source": "mission_critical",
+  "continuation_authority": "extended",
   "hard_exit_state": "normal",
   "final_action": "continue",
   "primary_action": "continue",
-  "guidance_key": "ui_002_short_route",
-  "planned_band_authority": "base",
-  "live_final_authority": "base",
-  "bridge_state": "off",
+  "guidance_key": "ui_003_extended_route",
+  "planned_band_authority": "below_base",
+  "live_final_authority": "below_base",
+  "bridge_state": "active",
+  "input_quality": "ready",
   "exit_reason": null,
-  "engine_version": "0.1.0-foundation",
-  "config_version": "0.1.0",
-  "parser_version": "0.0.0-stub",
-  "calculated_at": "2026-10-26T12:00:00+00:00",
-  "legacy_route_id": "early",
-  "notes": ["compat: pocket route mapped to continuation labels only"]
+  "engine_version": "0.2.0-wba",
+  "config_version": "0.2.0",
+  "parser_version": "0.1.0",
+  "calculated_at": "2026-10-27T12:00:00+00:00",
+  "legacy_route_id": null,
+  "notes": ["input_quality=ready", "wba:bridge_survival"]
 }
 ```
 

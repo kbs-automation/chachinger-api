@@ -7,6 +7,8 @@ Import only from app.services — never from routers.
 
 from app.engine.mission.compat import decision_from_continuation
 from app.engine.mission.decision import MissionDecision, build_versions
+from app.engine.mission.pipeline import authority_at_click, run_pipeline
+from app.engine.mission.protection import evaluate_protection, weak_recompression
 from app.engine.mission.versions import CONFIG_VERSION, ENGINE_VERSION, PARSER_VERSION
 
 __all__ = [
@@ -14,6 +16,10 @@ __all__ = [
     "ENGINE_VERSION",
     "PARSER_VERSION",
     "MissionDecision",
+    "authority_at_click",
     "build_versions",
     "decision_from_continuation",
+    "evaluate_protection",
+    "run_pipeline",
+    "weak_recompression",
 ]

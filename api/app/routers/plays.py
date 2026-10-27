@@ -34,7 +34,7 @@ async def load_owned_play(
 
 
 async def play_state(db: AsyncSession, play: Play, session: GameSession) -> PlayStateResponse:
-    posture, bet = await engine.upcoming_bet(db, play)
+    posture, bet = await engine.upcoming_bet(db, play, session)
     return PlayStateResponse(
         play_id=play.id,
         status=play.status,
@@ -70,7 +70,7 @@ async def start_play(
         body.chosen_postures,
         body.confirmed_below_base,
     )
-    posture, bet = await engine.upcoming_bet(db, play)
+    posture, bet = await engine.upcoming_bet(db, play, session)
     await db.commit()
     return PlayStartResponse(
         play_id=play.id,

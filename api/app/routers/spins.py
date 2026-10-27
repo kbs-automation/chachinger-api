@@ -17,7 +17,7 @@ from app.schemas.spins import (
     UndoSpinResponse,
 )
 from app.serializers import to_next_route
-from app.services import engine, next_route
+from app.services import engine, mission_decision, next_route
 from app.services.errors import DomainError, not_found
 
 router = APIRouter(prefix="/plays/{play_id}/spins", tags=["spins"])
@@ -35,6 +35,8 @@ async def register_spin(
 ) -> SpinResponse:
     play, session = await load_owned_play(db, user, play_id, for_update=True)
     outcome = await engine.process_spin(db, play, session)
+    click = play.total_clicks or 1
+    authority = mission_decision.spin_authority_fields(session, click, outcome.posture)
     try:
         await db.commit()
     except IntegrityError as exc:
@@ -50,6 +52,10 @@ async def register_spin(
         at_hard_exit_cap=outcome.at_hard_exit_cap,
         current_balance=session.current_balance,
         redirect=outcome.redirect,
+        planned_band_authority=authority["planned_band_authority"],  # type: ignore[arg-type]
+        live_final_authority=authority["live_final_authority"],  # type: ignore[arg-type]
+        continuation_authority=authority["continuation_authority"],  # type: ignore[arg-type]
+        bridge_state=authority["bridge_state"],  # type: ignore[arg-type]
     )
 
 
