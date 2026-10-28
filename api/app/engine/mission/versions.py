@@ -7,4 +7,5 @@ ENGINE_VERSION = "0.3.0-tab11"
 CONFIG_VERSION = "0.3.0"
 
 # Bump when Enhanced Sheet parsing/normalization changes (Tab 13).
-PARSER_VERSION = "0.1.1"
+# 0.2.0: weighted tokens locked to Lookup segment-first (supersedes ES-031 weight-first).
+PARSER_VERSION = "0.2.0"

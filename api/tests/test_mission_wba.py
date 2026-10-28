@@ -9,9 +9,10 @@ from tests.helpers import API, new_session, register, spin
 
 
 def test_weighted_token_preserves_segment_not_click():
+    # Lookup segment-first: 2*8 → segment 2, weight 8 (weight is never a click).
     token = parse_segment_token("2*8")
     assert token is not None
-    assert (token.segment_id, token.weight) == (8, 2)
+    assert (token.segment_id, token.weight) == (2, 8)
 
 
 def test_bridge_is_below_base_and_target_can_be_max():

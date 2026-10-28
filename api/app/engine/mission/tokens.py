@@ -1,4 +1,10 @@
-"""Enhanced-sheet token parsing (ES-030/031/032). Never treat weight as a click."""
+"""Enhanced-sheet token parsing (ES-030/032 + Lookup orientation).
+
+Weighted tokens are **segment-first**: `A*B` → segment_id=A, weight=B
+(Lookup sheet / real frequencies). Tab 13 ES-031's weight-first wording is
+superseded — values like `1*138` are counts on segment 1, not segment 138.
+Never treat weight as a click.
+"""
 
 from __future__ import annotations
 
@@ -30,8 +36,9 @@ def parse_segment_token(raw: str) -> SegmentToken | None:
         return None
     weighted = _WEIGHTED.match(text)
     if weighted:
-        weight = int(weighted.group(1))
-        segment_id = int(weighted.group(2))
+        # Lookup segment-first: left = segment_id, right = weight/count.
+        segment_id = int(weighted.group(1))
+        weight = int(weighted.group(2))
         if weight < 1 or segment_id < 1:
             return None
         return SegmentToken(segment_id=segment_id, weight=weight, raw=text)
