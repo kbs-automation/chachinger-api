@@ -70,12 +70,13 @@ Content-Type: application/json
 ```json
 {
   "row_2": ["S1", "S2"],
-  "row_4": ["7", "14"],
-  "row_5": ["7"],
+  "row_4": ["2", "3"],
+  "row_5": ["2"],
   "row_7": 3,
-  "row_8": ["7", "2*8", "40"],
-  "row_9": ["7", "40"],
-  "row_10": ["7"],
+  "row_8": ["2", "2*8", "6"],
+  "row_9": ["2", "6"],
+  "row_10": ["2"],
+  "token_format": "segment_count_v1",
   "row_17": 31,
   "row_18": 42,
   "row_19": ["7-13", "60-69"],
@@ -122,7 +123,7 @@ Content-Type: application/json
   "input_quality": "ready",
   "warnings": [],
   "conflicts": [],
-  "parser_version": "0.2.0",
+  "parser_version": "0.3.0",
   "decision": { }
 }
 ```
@@ -169,7 +170,7 @@ Also returned on spin register:
   "input_quality": "ready",
   "warnings": [],
   "conflicts": [],
-  "parser_version": "0.2.0",
+  "parser_version": "0.3.0",
   "decision": {
     "decision_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "source": "mission_critical",
@@ -185,7 +186,7 @@ Also returned on spin register:
     "input_quality": "ready",
     "engine_version": "0.3.0-tab11",
     "config_version": "0.3.0",
-    "parser_version": "0.2.0",
+    "parser_version": "0.3.0",
     "calculated_at": "2026-10-27T12:00:00+00:00",
     "legacy_route_id": null,
     "notes": [
@@ -221,7 +222,7 @@ When flag is on but **no sheet** was stored yet, next-route may return `source: 
   "input_quality": "invalid",
   "warnings": ["missing_core_rows_8_9_10"],
   "conflicts": [],
-  "parser_version": "0.2.0",
+  "parser_version": "0.3.0",
   "decision": {
     "decision_id": "…",
     "source": "mission_critical",
@@ -237,7 +238,7 @@ When flag is on but **no sheet** was stored yet, next-route may return `source: 
     "input_quality": "invalid",
     "engine_version": "0.3.0-tab11",
     "config_version": "0.3.0",
-    "parser_version": "0.2.0",
+    "parser_version": "0.3.0",
     "calculated_at": "…",
     "legacy_route_id": null,
     "notes": ["input_quality=invalid", "warn:missing_core_rows_8_9_10"]
@@ -256,7 +257,7 @@ Row 17 vs completed-play conflict example: `conflicts: ["row_17_prev_click_misma
   "input_quality": "degraded",
   "warnings": ["incomplete_core_corroboration"],
   "conflicts": [],
-  "parser_version": "0.2.0",
+  "parser_version": "0.3.0",
   "decision": {
     "decision_id": "…",
     "source": "mission_critical",
@@ -272,7 +273,7 @@ Row 17 vs completed-play conflict example: `conflicts: ["row_17_prev_click_misma
     "input_quality": "degraded",
     "engine_version": "0.3.0-tab11",
     "config_version": "0.3.0",
-    "parser_version": "0.2.0",
+    "parser_version": "0.3.0",
     "calculated_at": "…",
     "legacy_route_id": null,
     "notes": ["input_quality=degraded", "warn:incomplete_core_corroboration"]
@@ -287,7 +288,7 @@ Row 17 vs completed-play conflict example: `conflicts: ["row_17_prev_click_misma
   "input_quality": "ready",
   "warnings": [],
   "conflicts": [],
-  "parser_version": "0.2.0",
+  "parser_version": "0.3.0",
   "decision": {
     "decision_id": "…",
     "source": "mission_critical",
@@ -303,7 +304,7 @@ Row 17 vs completed-play conflict example: `conflicts: ["row_17_prev_click_misma
     "input_quality": "ready",
     "engine_version": "0.3.0-tab11",
     "config_version": "0.3.0",
-    "parser_version": "0.2.0",
+    "parser_version": "0.3.0",
     "calculated_at": "…",
     "legacy_route_id": null,
     "notes": []

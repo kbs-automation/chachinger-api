@@ -64,12 +64,34 @@ def _add_weight(
 
 
 def build_targets(sheet: NormalizedSheet) -> list[Target]:
+    targets, _warnings = build_targets_with_warnings(sheet)
+    return targets
+
+
+def build_targets_with_warnings(sheet: NormalizedSheet) -> tuple[list[Target], list[str]]:
+    """Build targets; unmapped segment ids are skipped (no invented click ranges)."""
     buckets: dict[tuple[int, int], dict[str, Any]] = {}
+    warnings: list[str] = []
+    seen_unmapped: set[int] = set()
+
+    def _map_or_warn(segment_id: int) -> tuple[int, int] | None:
+        mapped = segment_to_clicks(segment_id)
+        if mapped is None and segment_id not in seen_unmapped:
+            seen_unmapped.add(segment_id)
+            warnings.append(f"unmapped_segment_id:{segment_id}")
+        return mapped
+
     for token in (*sheet.row_8, *sheet.row_9):
-        start, end = segment_to_clicks(token.segment_id)
+        mapped = _map_or_warn(token.segment_id)
+        if mapped is None:
+            continue
+        start, end = mapped
         _add_weight(buckets, start, end, token.weight, "row_8_9")
     for token in sheet.row_10:
-        start, end = segment_to_clicks(token.segment_id)
+        mapped = _map_or_warn(token.segment_id)
+        if mapped is None:
+            continue
+        start, end = mapped
         _add_weight(buckets, start, end, token.weight + 1, "row_10")
     for pocket in sheet.pockets:
         _add_weight(buckets, pocket.start, pocket.end, 1, "pocket")
@@ -114,7 +136,7 @@ def build_targets(sheet: NormalizedSheet) -> list[Target]:
                 source_support=sources,  # type: ignore[arg-type]
             )
         )
-    return targets
+    return targets, warnings
 
 
 def _gap_support_signals(

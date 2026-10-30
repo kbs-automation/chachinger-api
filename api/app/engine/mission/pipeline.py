@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.engine.mission.continuation import evaluate_continuation
@@ -10,13 +10,18 @@ from app.engine.mission.decision import MissionDecision, build_versions, new_dec
 from app.engine.mission.enums import BridgeState, GuidanceKey, WagerAuthority
 from app.engine.mission.protection import ProtectionState, evaluate_protection
 from app.engine.mission.safety import SafetyState, apply_safety
-from app.engine.mission.sheet import EnhancedSheetRaw, NormalizedSheet, normalize_sheet
+from app.engine.mission.sheet import (
+    EnhancedSheetRaw,
+    NormalizedSheet,
+    normalize_sheet,
+    normalized_sheet_from_snapshot,
+)
 from app.engine.mission.targets import (
     Bridge,
     Target,
     apply_click_progress,
     bridges_between,
-    build_targets,
+    build_targets_with_warnings,
     region_at,
 )
 from app.engine.mission.wba import planned_authority
@@ -49,6 +54,7 @@ class RoutePlan:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RoutePlan:
+        """Hydrate from persisted plan. Never re-parses raw token strings (snapshot safe)."""
         targets = [
             Target(
                 target_id=t["target_id"],
@@ -64,7 +70,11 @@ class RoutePlan:
             for t in data.get("targets", [])
         ]
         bridges = [Bridge(b["start_click"], b["end_click"]) for b in data.get("bridges", [])]
-        sheet = normalize_sheet(EnhancedSheetRaw(**_raw_from_sheet_dict(data.get("sheet") or {})))
+        sheet_data = data.get("sheet") or {}
+        sheet = normalized_sheet_from_snapshot(sheet_data)
+        if sheet is None:
+            # Empty placeholder — do not reparse historical raw (migration required).
+            sheet = normalize_sheet(EnhancedSheetRaw())
         return cls(
             targets=targets,
             bridges=bridges,
@@ -76,13 +86,6 @@ class RoutePlan:
             safety_reason=data.get("safety_reason"),
             protection=data.get("protection"),
         )
-
-
-def _raw_from_sheet_dict(sheet: dict[str, Any]) -> dict[str, Any]:
-    raw = sheet.get("raw") or {}
-    if raw:
-        return {k: v for k, v in raw.items() if v is not None}
-    return {}
 
 
 def _bridge_state_for(click: int, targets: list[Target], bridges: list[Bridge]) -> BridgeState:
@@ -112,7 +115,11 @@ def run_pipeline(
     current_click: int | None = None,
 ) -> tuple[MissionDecision, RoutePlan]:
     sheet = normalize_sheet(raw)
-    targets = build_targets(sheet) if sheet.input_quality != "invalid" else []
+    map_warnings: list[str] = []
+    if sheet.input_quality != "invalid":
+        targets, map_warnings = build_targets_with_warnings(sheet)
+    else:
+        targets = []
     click = current_click if current_click is not None else opening_click
     if targets and current_click is not None:
         targets = apply_click_progress(targets, current_click)
@@ -145,6 +152,7 @@ def run_pipeline(
     bridge_state: BridgeState = "off"
     notes: list[str] = [
         f"input_quality={sheet.input_quality}",
+        f"token_format={sheet.token_format}",
         f"targets={len([t for t in targets if t.status != 'exhausted'])}",
         f"bridges={len(bridges)}",
         f"wr={protection.weak_recompression}",
@@ -152,6 +160,7 @@ def run_pipeline(
         f"her={protection.her_active}",
     ]
     notes.extend(f"warn:{w}" for w in sheet.warnings)
+    notes.extend(f"warn:{w}" for w in map_warnings)
     notes.extend(f"conflict:{c}" for c in sheet.conflicts)
 
     if cont.final_action == "continue":
@@ -216,6 +225,8 @@ def run_pipeline(
         input_quality=sheet.input_quality,
         notes=tuple(notes),
     )
+    if map_warnings:
+        sheet = replace(sheet, warnings=tuple([*sheet.warnings, *map_warnings]))
     plan = RoutePlan(
         targets=targets,
         bridges=bridges,

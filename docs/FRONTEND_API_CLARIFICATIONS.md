@@ -196,7 +196,7 @@ Note: **Play-1** with `p1_mode_active` still uses the P1 zone map for `posture`.
 
 Reason: real Lookup values (`1*138; 2*95; …`) put descending frequencies after `*`; segment range is 1–33, so 138 cannot be a segment ID. Lookup row-10 annotation matches (`2*7` = segment 2 appeared 7 times).
 
-`PARSER_VERSION` bumped to **0.2.0**.
+`PARSER_VERSION` **0.3.0**. Wire id: `token_format` = **`segment_count_v1`** (optional on request).
 
 ### Server result (real `tokens.py` run)
 
@@ -291,7 +291,7 @@ If you need EX-011 “user asked PRESS, server caps to BASE”, that requires a 
 
 1. **Execute** with `posture` + `next_bet_amount` only; your BELOW BASE workaround (never send `below_base` in `active_postures`) yields **BASE bets** even when authority fields say `below_base`.
 2. Authority fields are recalculated per spin on P2+ with a route plan; sequence changes across pre-entry / target / post-expiry bridge.
-3. Tokens are **segment-first (Lookup)** — `1*138` → segment 1, weight 138. ES-031 weight-first is superseded (`PARSER_VERSION` 0.2.0).
+3. Tokens are **segment-first (Lookup)** — `1*138` → segment 1, weight 138. Prefer sending `token_format: "segment_count_v1"` (`PARSER_VERSION` 0.3.0).
 4. **No** client PRESS/MAX request or `AUTHORITY_CAP` yet.
 
 Repro harness (optional): `pytest -s tests/_clarify_frontend_examples.py` and `tests/test_lookup_token_orientation.py`.

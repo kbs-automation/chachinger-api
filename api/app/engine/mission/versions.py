@@ -8,4 +8,12 @@ CONFIG_VERSION = "0.3.0"
 
 # Bump when Enhanced Sheet parsing/normalization changes (Tab 13).
 # 0.2.0: weighted tokens locked to Lookup segment-first (supersedes ES-031 weight-first).
-PARSER_VERSION = "0.2.0"
+# 0.3.0: token_format id + segment map without invented ranges; snapshot hydrate (no silent reparse).
+PARSER_VERSION = "0.3.0"
+
+# Wire format for weighted tokens (independent of source_schema_version / workbook id).
+# Value matches the client's confirmed convention: segment*count.
+# Old servers (extra=forbid, no this field) return 422 if the client sends token_format —
+# so they cannot silently misread new-format tokens as weight-first.
+TOKEN_FORMAT = "segment_count_v1"
+SUPPORTED_TOKEN_FORMATS: frozenset[str] = frozenset({TOKEN_FORMAT})

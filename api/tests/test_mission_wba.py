@@ -17,9 +17,9 @@ def test_weighted_token_preserves_segment_not_click():
 
 def test_bridge_is_below_base_and_target_can_be_max():
     raw = EnhancedSheetRaw(
-        row_8=["7", "40"],
-        row_9=["7", "40"],
-        row_10=["7"],
+        row_8=["2", "6"],
+        row_9=["2", "6"],
+        row_10=["2"],
         primary_density_pct=60,
         density_strength="STRONG",
         pockets=["7-13"],
@@ -44,13 +44,13 @@ def test_bridge_is_below_base_and_target_can_be_max():
 
 def test_safety_caps_max_to_base():
     raw = EnhancedSheetRaw(
-        row_8=["7"],
-        row_9=["7"],
-        row_10=["7"],
+        row_8=["2"],
+        row_9=["2"],
+        row_10=["2"],
         primary_density_pct=80,
         density_strength="STRONG",
-        row_4=["7"],
-        row_5=["7"],
+        row_4=["2"],
+        row_5=["2"],
         prev_multiplier=40,
     )
     decision, _plan = run_pipeline(
@@ -83,9 +83,9 @@ async def test_enhanced_sheet_endpoint_and_spin_fields(client, monkeypatch):
         sheet = await client.post(
             f"{API}/sessions/{sid}/enhanced-sheet",
             json={
-                "row_8": ["7", "40"],
-                "row_9": ["7", "40"],
-                "row_10": ["7"],
+                "row_8": ["2", "6"],
+                "row_9": ["2", "6"],
+                "row_10": ["2"],
                 "primary_density_pct": 55,
                 "density_strength": "STRONG",
             },

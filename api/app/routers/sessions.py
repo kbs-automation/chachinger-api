@@ -10,6 +10,7 @@ from app.models import User
 from app.schemas.common import Page
 from app.engine import postures
 from app.engine.mission.sheet import EnhancedSheetRaw
+from app.engine.mission.versions import TOKEN_FORMAT
 from app.schemas.routes import NextRouteResponse, RouteQuoteRequest, SelectRouteRequest
 from app.schemas.sessions import (
     CreateSessionRequest,
@@ -129,6 +130,7 @@ async def submit_enhanced_sheet(
         density_strength=body.density_strength,
         pockets=body.pockets,
         source_schema_version=body.source_schema_version,
+        token_format=body.token_format,
         prev_ending_click=body.prev_ending_click,
         prev_multiplier=body.prev_multiplier,
         prior_ending_click=body.prior_ending_click,
@@ -143,6 +145,7 @@ async def submit_enhanced_sheet(
         warnings=list(sheet.get("warnings") or []),
         conflicts=list(sheet.get("conflicts") or []),
         parser_version=str(sheet.get("parser_version") or decision.parser_version),
+        token_format=str(sheet.get("token_format") or TOKEN_FORMAT),
         decision=mission_decision.to_out(decision),
     )
 

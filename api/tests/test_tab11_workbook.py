@@ -11,13 +11,13 @@ from app.engine.mission.sheet import normalize_sheet
 
 def _front_max_sheet(**extra) -> EnhancedSheetRaw:
     base = dict(
-        row_8=["7"],
-        row_9=["7"],
-        row_10=["7"],
+        row_8=["2"],
+        row_9=["2"],
+        row_10=["2"],
         primary_density_pct=60,
         density_strength="STRONG",
-        row_4=["7"],
-        row_5=["7"],
+        row_4=["2"],
+        row_5=["2"],
     )
     base.update(extra)
     return EnhancedSheetRaw(**base)
@@ -25,9 +25,9 @@ def _front_max_sheet(**extra) -> EnhancedSheetRaw:
 
 def test_tc010_continuation_independent_from_bridge_wager():
     raw = EnhancedSheetRaw(
-        row_8=["7", "70"],
-        row_9=["7", "70"],
-        row_10=["7"],
+        row_8=["2", "9"],
+        row_9=["2", "9"],
+        row_10=["2"],
         primary_density_pct=55,
         density_strength="STRONG",
         pockets=["70-80"],
@@ -42,7 +42,7 @@ def test_tc010_continuation_independent_from_bridge_wager():
 
 
 def test_tc013_touching_targets_cluster():
-    sheet = normalize_sheet(EnhancedSheetRaw(row_8=["7", "14"], row_9=["7", "14"], row_10=["7"]))
+    sheet = normalize_sheet(EnhancedSheetRaw(row_8=["2", "3"], row_9=["2", "3"], row_10=["2"]))
     targets = build_targets(sheet)
     assert len(targets) == 1
     assert targets[0].start_click == 7 and targets[0].end_click == 19
@@ -51,9 +51,9 @@ def test_tc013_touching_targets_cluster():
 def test_tc014_unsupported_small_gap_stays_bridge():
     sheet = normalize_sheet(
         EnhancedSheetRaw(
-            row_8=["7"],
-            row_9=["7"],
-            row_10=["7"],
+            row_8=["2"],
+            row_9=["2"],
+            row_10=["2"],
             pockets=["17-19"],  # gap 14-16 (3 clicks), no dual gap signals
         )
     )
@@ -67,9 +67,9 @@ def test_tc014_unsupported_small_gap_stays_bridge():
 def test_tc015_supported_small_gap_merges():
     sheet = normalize_sheet(
         EnhancedSheetRaw(
-            row_8=["7"],
-            row_9=["7"],
-            row_10=["7"],
+            row_8=["2"],
+            row_9=["2"],
+            row_10=["2"],
             pockets=["17-19"],
             row_19=["14-16"],
             primary_density_pct=40,
@@ -90,9 +90,9 @@ def test_tc020_max_through_terminal_click():
 
 def test_tc021_authority_expires_after_terminal_into_bridge():
     raw = EnhancedSheetRaw(
-        row_8=["7", "40"],
-        row_9=["7", "40"],
-        row_10=["7"],
+        row_8=["2", "6"],
+        row_9=["2", "6"],
+        row_10=["2"],
         primary_density_pct=55,
         density_strength="STRONG",
     )
@@ -113,7 +113,7 @@ def test_tc022_local_max_override_with_two_corroborators():
 
 
 def test_tc041_row19_cannot_create_deep_alone():
-    sheet = normalize_sheet(EnhancedSheetRaw(row_8=["7"], row_9=["7"], row_10=["7"], row_19=["70-80"]))
+    sheet = normalize_sheet(EnhancedSheetRaw(row_8=["2"], row_9=["2"], row_10=["2"], row_19=["70-80"]))
     targets = build_targets(sheet)
     assert all(t.end_click < 70 for t in targets)
 
@@ -155,9 +155,9 @@ def test_tc070_deterministic_replay():
 def test_tc089_weak_recompression_known_trigger():
     assert weak_recompression(118, 31, 21.0) is True
     raw = EnhancedSheetRaw(
-        row_8=["7", "70"],
-        row_9=["7", "70"],
-        row_10=["7"],
+        row_8=["2", "9"],
+        row_9=["2", "9"],
+        row_10=["2"],
         primary_density_pct=40,
         prior_ending_click=118,
         prev_ending_click=31,
@@ -183,9 +183,9 @@ def test_tc092_wr_strength_boundary():
 
 def test_tc093_wr_no_live_depth_does_not_invent_target():
     raw = EnhancedSheetRaw(
-        row_8=["7"],
-        row_9=["7"],
-        row_10=["7"],
+        row_8=["2"],
+        row_9=["2"],
+        row_10=["2"],
         prior_ending_click=118,
         prev_ending_click=31,
         prev_multiplier=21,
@@ -197,13 +197,13 @@ def test_tc093_wr_no_live_depth_does_not_invent_target():
 
 def test_tc096_s11_exceptional_max_all_pass():
     raw = EnhancedSheetRaw(
-        row_8=["60"],
-        row_9=["60"],
-        row_10=["60"],
+        row_8=["8"],
+        row_9=["8"],
+        row_10=["8"],
         row_19=["60-69"],
         primary_density_pct=60,
         density_strength="STRONG",
-        row_4=["60"],
+        row_4=["8"],
         prev_multiplier=30,
     )
     decision, plan = run_pipeline(raw, opening_click=65)
@@ -215,9 +215,9 @@ def test_tc096_s11_exceptional_max_all_pass():
 
 def test_tc097_s11_max_fails_without_second_corroborator():
     raw = EnhancedSheetRaw(
-        row_8=["60"],
-        row_9=["60"],
-        row_10=["60"],
+        row_8=["8"],
+        row_9=["8"],
+        row_10=["8"],
         primary_density_pct=60,
         density_strength="STRONG",
         prev_multiplier=30,
@@ -229,9 +229,9 @@ def test_tc097_s11_max_fails_without_second_corroborator():
 
 def test_tc098_s12_press_all_pass():
     raw = EnhancedSheetRaw(
-        row_8=["70"],
-        row_9=["70"],
-        row_10=["70"],
+        row_8=["9"],
+        row_9=["9"],
+        row_10=["9"],
         row_19=["70-80"],
         primary_density_pct=55,
         density_strength="STRONG",
@@ -246,8 +246,8 @@ def test_tc098_s12_press_all_pass():
 
 def test_tc099_s12_press_fails_without_extra_core():
     raw = EnhancedSheetRaw(
-        row_8=["70"],
-        row_9=["70"],
+        row_8=["9"],
+        row_9=["9"],
         primary_density_pct=55,
         density_strength="STRONG",
         prev_multiplier=40,
@@ -281,9 +281,9 @@ def test_tc101_safety_downgrade_preserves_route():
 
 def test_tc102_front_bridge_deep_handoff():
     raw = EnhancedSheetRaw(
-        row_8=["7", "70"],
-        row_9=["7", "70"],
-        row_10=["7"],
+        row_8=["2", "9"],
+        row_9=["2", "9"],
+        row_10=["2"],
         primary_density_pct=50,
         density_strength="STRONG",
         pockets=["70-80"],
@@ -301,9 +301,9 @@ def test_tc102_front_bridge_deep_handoff():
 
 def test_tc011_dfr_preserves_later_route():
     raw = EnhancedSheetRaw(
-        row_8=["7", "40"],
-        row_9=["7", "40"],
-        row_10=["7"],
+        row_8=["2", "6"],
+        row_9=["2", "6"],
+        row_10=["2"],
         primary_density_pct=40,
     )
     _decision, plan = run_pipeline(raw)

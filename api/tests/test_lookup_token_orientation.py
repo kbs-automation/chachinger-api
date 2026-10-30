@@ -13,9 +13,9 @@ def test_lookup_row_values_segment_first():
         (3, 74),
         (4, 64),
     ]
-    # Segment 1 is in-band (not the out-of-range 138 that weight-first invented).
-    start, end = segment_to_clicks(1)
-    assert 1 <= start <= end
+    # Segment 1 is mapped; weight 138 is never treated as a segment/click.
+    assert segment_to_clicks(1) == (1, 6)
+    assert segment_to_clicks(138) is None
 
     row8 = parse_segment_list(["1*6", "4*7", "2*7", "11", "25", "3*3"])
     assert [(t.segment_id, t.weight) for t in row8] == [

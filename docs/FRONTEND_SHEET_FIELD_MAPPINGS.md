@@ -49,14 +49,15 @@ Also optional:
 
 **Decision (final):** **Lookup sheet segment-first** — not Tab 13 ES-031 weight-first.
 
-**Rule:** In `A*B`, **A = segment_id**, **B = weight/count**. Plain `N` → segment_id=N, weight=1.  
-(`PARSER_VERSION` **0.2.0**.)
+**Rule:** In `A*B`, **A = segment_id**, **B = weight/count** (`segment*count`). Plain `N` → segment_id=N, weight=1.  
+`PARSER_VERSION` **0.3.0**. Wire id: `token_format` = **`segment_count_v1`** (optional on request; always echoed on response).  
+`source_schema_version` remains workbook-only — never encodes token operand order.
 
 | Token | Parsed as |
 |---|---|
 | `"1*138"` | `segment_id = 1`, `weight = 138` |
 | `"2*8"` | `segment_id = 2`, `weight = 8` (not click 16) |
-| `"13"` | `segment_id = 13`, `weight = 1` |
+| `"13"` | `segment_id = 13`, `weight = 1` (unmapped ordinals are skipped — no invented click range) |
 
 **Workbook string `1*138; 2*95`:** split before POST:
 
@@ -69,14 +70,17 @@ Also optional:
 **API shape:** JSON **array of strings**. Split on `;` (trim) in Flutter **before** POST.  
 A single string `"1*138; 2*95"` will **not** parse as two tokens.
 
-Example:
+Example (Flutter may omit `token_format` today; sending it is preferred so older servers 422 via `extra=forbid`):
 
 ```json
-"row_8": ["1*138", "2*95", "7"]
+{
+  "row_8": ["1*138", "2*95", "7"],
+  "token_format": "segment_count_v1",
+  "source_schema_version": "UNKNOWN"
+}
 ```
 
-Implementation: `api/app/engine/mission/tokens.py`.  
-Why Lookup wins: real frequencies (`1*138`, …) put counts after `*`; segment range is 1–33, so 138 cannot be a segment ID. ES-031 operand order is superseded.
+Implementation: `api/app/engine/mission/tokens.py`. Segment→click map: `segment_map.py` (no hard max 33/97; unmapped ids are not invented as ranges).
 
 ---
 

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from app.core.config import get_settings
-from app.engine.mission import MissionDecision, decision_from_continuation
+from app.engine.mission import decision_from_continuation
+from app.engine.mission.decision import MissionDecision
 from app.engine.mission.pipeline import RoutePlan, authority_at_click, run_pipeline
-from app.engine.mission.sheet import EnhancedSheetRaw
+from app.engine.mission.sheet import EnhancedSheetRaw, can_reparse_snapshot
 from app.models import GameSession
 from app.schemas.decision import MissionDecisionOut
 from app.services.next_route import Continuation
@@ -38,9 +39,38 @@ def to_out(decision: MissionDecision) -> MissionDecisionOut:
     )
 
 
+def _decision_from_stored(data: dict) -> MissionDecision | None:
+    try:
+        return MissionDecision(
+            decision_id=str(data["decision_id"]),
+            source=data.get("source") or "mission_critical",
+            continuation_authority=data["continuation_authority"],
+            hard_exit_state=data["hard_exit_state"],
+            final_action=data["final_action"],
+            primary_action=data["primary_action"],
+            guidance_key=data["guidance_key"],
+            planned_band_authority=data.get("planned_band_authority"),
+            live_final_authority=data.get("live_final_authority"),
+            bridge_state=data.get("bridge_state") or "off",
+            exit_reason=data.get("exit_reason"),
+            engine_version=str(data.get("engine_version") or ""),
+            config_version=str(data.get("config_version") or ""),
+            parser_version=str(data.get("parser_version") or ""),
+            calculated_at=str(data.get("calculated_at") or ""),
+            legacy_route_id=data.get("legacy_route_id"),
+            input_quality=data.get("input_quality"),
+            notes=tuple(data.get("notes") or ()),
+        )
+    except Exception:
+        return None
+
+
 def _sheet_raw(session: GameSession) -> EnhancedSheetRaw | None:
     data = session.enhanced_sheet
     if not isinstance(data, dict):
+        return None
+    # Historical snapshots: do not reparse weight-first-era raw with the new parser.
+    if not can_reparse_snapshot(data):
         return None
     payload = data.get("raw") if isinstance(data.get("raw"), dict) else data
     if not isinstance(payload, dict):
@@ -62,6 +92,7 @@ def _sheet_raw(session: GameSession) -> EnhancedSheetRaw | None:
         "density_strength",
         "pockets",
         "source_schema_version",
+        "token_format",
         "prev_ending_click",
         "prev_multiplier",
         "prior_ending_click",
@@ -101,6 +132,12 @@ def from_continuation(
     if raw is not None:
         route = view.selected_route or (view.routes[0].route_id if view.routes else None)
         return decide_from_sheet(session, raw, legacy_route_id=route, persist=persist)
+
+    # Prefer the stored decision over reparsing incompatible historical raw tokens.
+    if isinstance(session.last_decision, dict):
+        stored = _decision_from_stored(session.last_decision)
+        if stored is not None:
+            return stored
 
     decision = decision_from_continuation(
         can_continue=view.can_continue,
