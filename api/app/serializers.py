@@ -1,7 +1,7 @@
 from app.engine.zone_maps import PLAYS_PER_CYCLE
 from app.models import GameSession, User
 from app.schemas.auth import UserProfile
-from app.schemas.routes import NextRouteResponse, RouteCardOut, RouteReferenceOut
+from app.schemas.routes import NextRouteResponse, RegionWagerOut, RouteCardOut, RouteReferenceOut
 from app.schemas.sessions import SessionOut
 from app.services import mission_decision, storage
 from app.services.next_route import Continuation
@@ -59,9 +59,12 @@ def to_next_route(
     decision = None
     if session is not None:
         decision = mission_decision.optional_out(view, session, persist=persist_decision)
+    decision_id = view.decision_id
+    if decision_id is None and decision is not None:
+        decision_id = decision.decision_id
     return NextRouteResponse(
         can_continue=view.can_continue,
-        block_reason=view.block_reason,
+        block_reason=view.block_reason,  # type: ignore[arg-type]
         completed_play_number=view.completed_play_number,
         next_play_number=view.next_play_number,
         next_cycle_number=view.next_cycle_number,
@@ -75,7 +78,8 @@ def to_next_route(
             press=reference.press,
             max=reference.max,
             below_base=reference.below_base,
-            source=reference.source,
+            source=reference.source,  # type: ignore[arg-type]
+            ladder_status=reference.ladder_status,  # type: ignore[arg-type]
         ),
         routes=[
             RouteCardOut(
@@ -84,8 +88,24 @@ def to_next_route(
                 detail=card.detail,
                 exposure_pct=card.exposure_pct,
                 risk_pct=card.risk_pct,
+                end_click=card.end_click,
+                start_click=card.start_click,
+                pricing_scope=card.pricing_scope,  # type: ignore[arg-type]
+                total_planned_wager=card.total_planned_wager,
+                planned_budget_exposure_pct=card.planned_budget_exposure_pct,
+                planned_balance_exposure_pct=card.planned_balance_exposure_pct,
+                regions=None
+                if card.regions is None
+                else [RegionWagerOut.model_validate(r) for r in card.regions],
             )
             for card in view.routes
         ],
         decision=decision,
+        pricing_source=view.pricing_source,  # type: ignore[arg-type]
+        ladder_status=view.ladder_status,  # type: ignore[arg-type]
+        decision_id=decision_id,
+        engine_version=view.engine_version,
+        config_version=view.config_version,
+        parser_version=view.parser_version,
+        offer_meta=view.offer_meta or None,
     )

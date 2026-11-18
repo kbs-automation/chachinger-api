@@ -89,12 +89,13 @@ async def start_play(
         click_cap = config.click_cap
         chosen_route = None
     else:
-        route = routes.get_route(session.pending_route or "")
-        if route is None:
-            raise DomainError(409, "route_required", "Choose a next-play route first")
-        p1_mode, p1_mode_active, click_cap = None, False, route.end_click
-        chosen_route: str | None = route.route_id
+        from app.services import next_route as next_route_service
+
+        click_cap = next_route_service.require_fresh_quote_for_play(session)
+        chosen_route: str | None = session.pending_route
+        p1_mode, p1_mode_active = None, False
         session.pending_route = None
+        session.pending_quote = None
 
     play = Play(
         session_id=session.id,

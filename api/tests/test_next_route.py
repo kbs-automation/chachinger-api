@@ -43,7 +43,12 @@ async def test_qualifying_result_offers_routes_without_click_data(client):
     assert exposures == sorted(exposures)
     assert exposures[0] < exposures[-1]
     assert risks[0] < risks[-1]
-    assert keys_matching(offer, "click") == []
+    # Entertainment cards must not publish click bounds (Mission cards may).
+    for card in offer["routes"]:
+        assert card.get("end_click") is None
+        assert card.get("start_click") is None
+        assert card.get("regions") is None
+    assert offer.get("pricing_source") in {None, "entertainment"}
 
     budget = Decimal(str(offer["reference"]["budget"]))
     base, press, max_bet = (Decimal(str(offer["reference"][name])) for name in ("base", "press", "max"))
@@ -116,15 +121,8 @@ async def test_routes_are_unavailable_before_a_play_finishes(client):
     headers = await register(client)
     session = await new_session(client, headers, "entertainment", 500)
     offer = (await client.get(f"{API}/sessions/{session['session_id']}/next-route", headers=headers)).json()
-    assert offer == {
-            "can_continue": False,
-            "block_reason": "no_completed_play",
-            "completed_play_number": None,
-            "next_play_number": None,
-            "next_cycle_number": None,
-            "prompt": None,
-            "selected_route": None,
-            "reference": None,
-            "routes": [],
-            "decision": None,
-        }
+    assert offer["can_continue"] is False
+    assert offer["block_reason"] == "no_completed_play"
+    assert offer["routes"] == []
+    assert offer["reference"] is None
+    assert offer["decision"] is None

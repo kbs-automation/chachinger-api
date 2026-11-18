@@ -170,7 +170,9 @@ async def choose_next_route(
     db: AsyncSession = Depends(get_db),
 ) -> NextRouteResponse:
     session = await session_service.get_owned_session(db, user, session_id, for_update=True)
-    view = await next_route.select_route(db, session, body.route_id)
+    view = await next_route.select_route(
+        db, session, body.route_id, decision_id=body.decision_id
+    )
     response = to_next_route(view, session)
     await db.commit()
     return response
@@ -183,26 +185,30 @@ async def quote_next_route(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> NextRouteResponse:
-    session = await session_service.get_owned_session(db, user, session_id)
+    session = await session_service.get_owned_session(db, user, session_id, for_update=True)
     active = (
         postures.chosen(body.active_postures, body.below_base)
         if body.base is not None or body.below_base is not None
         else None
     )
-    return to_next_route(
-        await next_route.describe(
-            db,
-            session,
-            budget=body.budget,
-            base=body.base,
-            press=body.press,
-            max_bet=body.max,
-            active=active,
-            below_base=body.below_base,
-        ),
+    active_play = await play_tracker.active_play(db, session.id)
+    view = await next_route.describe(
+        db,
         session,
-        persist_decision=False,
+        budget=body.budget,
+        base=body.base,
+        press=body.press,
+        max_bet=body.max,
+        active=active,
+        below_base=body.below_base,
+        start_click=body.start_click,
+        allow_during_play=active_play is not None,
+        persist_offer=active_play is None,
     )
+    response = to_next_route(view, session, persist_decision=False)
+    if active_play is None:
+        await db.commit()
+    return response
 
 
 @router.post("/{session_id}/end", response_model=SessionOut)

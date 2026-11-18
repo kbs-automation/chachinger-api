@@ -23,7 +23,9 @@ SESSION_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 PLAY_STATUSES = ("active", "completed", "hard_exit", "manual_exit")
 RESULT_TYPES = ("multiplier", "bonus", "hard_exit", "manual_exit")
 POSTURES = ("base", "press", "max", "early_attack", "below_base")
+# Entertainment pocket ids. Mission ids use mission_to_<click> (validated in app + DB regex).
 ROUTE_IDS = ("early", "mid", "deep", "extreme_deep")
+MISSION_ROUTE_PREFIX = "mission_to_"
 
 
 def in_list(column: str, values: tuple[str, ...], nullable: bool = False) -> str:

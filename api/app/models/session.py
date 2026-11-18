@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import JSONType, P1_MODES, ROUTE_IDS, SESSION_STATUSES, Base, in_list, utcnow
+from app.models.base import JSONType, P1_MODES, SESSION_STATUSES, Base, in_list, utcnow
 
 
 class GameSession(Base):
@@ -25,7 +25,11 @@ class GameSession(Base):
     __table_args__ = (
         CheckConstraint(in_list("p1_mode", P1_MODES), name="p1_mode_valid"),
         CheckConstraint(in_list("status", SESSION_STATUSES), name="status_valid"),
-        CheckConstraint(in_list("pending_route", ROUTE_IDS, nullable=True), name="pending_route_valid"),
+        # Entertainment + mission_to_<n> validated in app; DB keeps length only (SQLite-safe).
+        CheckConstraint(
+            "pending_route IS NULL OR length(pending_route) BETWEEN 1 AND 40",
+            name="pending_route_valid",
+        ),
         CheckConstraint("session_budget >= 0", name="budget_non_negative"),
         Index("ix_sessions_user_started", "user_id", "started_at"),
         Index("ix_sessions_status", "status"),
@@ -50,12 +54,14 @@ class GameSession(Base):
     )
     execution_grade: Mapped[str | None] = mapped_column(String(4))
     # Route chosen on Play Complete, held until the next play starts.
-    pending_route: Mapped[str | None] = mapped_column(String(20))
+    pending_route: Mapped[str | None] = mapped_column(String(40))
     # Latest mission-critical decision snapshot (DM-134). Null when flag is off.
     last_decision: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     # Last normalized Enhanced Sheet + live route plan for P2+ WBA posture.
     enhanced_sheet: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     route_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # Last next-route / quote snapshot (decision_id, ladder, priced routes).
+    pending_quote: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
     )
